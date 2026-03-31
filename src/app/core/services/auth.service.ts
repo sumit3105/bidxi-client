@@ -1,24 +1,24 @@
-import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Injectable, signal } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { Observable, tap, catchError, throwError } from "rxjs";
 import {
   LoginRequest,
   RegisterRequest,
   AuthResponse,
   UserDTO,
   ApiSuccess,
-} from '../models/auth.model';
+} from "../models/auth.model";
 
-const TOKEN_KEY = 'bidxi_token';
-const USER_KEY  = 'bidxi_user';
-const API_BASE  = '/api';
+const TOKEN_KEY = "bidxi_token";
+const USER_KEY = "bidxi_user";
+const API_BASE = "http://localhost:8080/api";
 
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class AuthService {
   private _isLoggedIn = signal<boolean>(this.hasToken());
   private _currentUser = signal<UserDTO | null>(this.loadUser());
 
-  readonly isLoggedIn  = this._isLoggedIn.asReadonly();
+  readonly isLoggedIn = this._isLoggedIn.asReadonly();
   readonly currentUser = this._currentUser.asReadonly();
 
   constructor(private http: HttpClient) {}
@@ -34,7 +34,7 @@ export class AuthService {
       .post<ApiSuccess<AuthResponse>>(`${API_BASE}/auth/login`, req)
       .pipe(
         tap((res) => this.saveSession(res.data)),
-        catchError(this.handleError)
+        catchError(this.handleError),
       );
   }
 
@@ -75,11 +75,14 @@ export class AuthService {
     }
   }
 
-  private handleError(err: { error?: { message?: string; error?: string }; status?: number }) {
+  private handleError(err: {
+    error?: { message?: string; error?: string };
+    status?: number;
+  }) {
     const message =
       err?.error?.message ||
       err?.error?.error ||
-      'An unexpected error occurred. Please try again.';
+      "An unexpected error occurred. Please try again.";
     return throwError(() => new Error(message));
   }
 }
