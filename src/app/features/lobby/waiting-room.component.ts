@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from "@angular/core";
+import { Component, OnInit, OnDestroy, signal, computed } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LobbyService } from "../../core/services/lobby.service";
@@ -18,167 +18,193 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
   LSG: { color: "#A72056", label: "Lucknow Super Giants" },
 };
 
+interface WaitingRoomVM {
+  lobby: LobbyDTO | null;
+  isAdmin: boolean;
+  wsConnected: boolean;
+  loadError: string;
+  kickedMessage: string;
+  actionError: string;
+  auctionStarting: boolean;
+  codeCopied: boolean;
+  currentUserId: string;
+}
+
 @Component({
   selector: "app-lobby-waiting-room",
   standalone: true,
   imports: [CommonModule],
   template: `
-    <!-- Error state -->
-    <div class="wr-root" *ngIf="loadError">
-      <div class="loading-screen">
-        <div style="font-size:2.5rem">⚠️</div>
-        <p style="color:#fc5c65;font-size:1rem;font-weight:700;margin:0">{{ loadError }}</p>
-        <button class="back-btn" style="margin-top:.5rem" (click)="router.navigate(['/dashboard'])">Back to Dashboard</button>
-      </div>
-    </div>
-
-    <!-- Loading -->
-    <div class="wr-root" *ngIf="!lobby && !loadError">
-      <div class="loading-screen">
-        <div class="spinner"></div>
-        <span>Loading Lobby…</span>
-      </div>
-    </div>
-
-    <!-- Waiting Room -->
-    <div class="wr-root" *ngIf="lobby">
-      <!-- Header -->
-      <header class="wr-header">
-        <div class="wr-header-left">
-          <button class="back-btn" (click)="router.navigate(['/dashboard'])">← Back</button>
-          <div>
-            <h1 class="wr-lobby-name">{{ lobby.name }}</h1>
-            <span class="status-pill" [class]="lobby.status">{{ lobby.status | uppercase }}</span>
-          </div>
+    <ng-container *ngIf="vm() as vm">
+      <!-- Error state -->
+      <div class="wr-root" *ngIf="vm.loadError">
+        <div class="loading-screen">
+          <div style="font-size:2.5rem">⚠️</div>
+          <p style="color:#fc5c65;font-size:1rem;font-weight:700;margin:0">{{ vm.loadError }}</p>
+          <button class="back-btn" style="margin-top:.5rem" (click)="router.navigate(['/dashboard'])">Back to Dashboard</button>
         </div>
+      </div>
 
-        <div class="wr-header-center">
-          <div class="invite-block">
-            <span class="inv-label">INVITE CODE</span>
-            <div class="inv-code-row">
-              <span class="inv-code">{{ lobby.inviteCode }}</span>
-              <button class="copy-btn" (click)="copyCode()" [class.copied]="codeCopied">
-                {{ codeCopied ? '✅ Copied!' : '📋 Copy' }}
+      <!-- Kicked state -->
+      <div class="wr-root" *ngIf="vm.kickedMessage">
+        <div class="loading-screen">
+          <div style="font-size:2.5rem">🚫</div>
+          <p style="color:#fc5c65;font-size:1.1rem;font-weight:700;margin:0">{{ vm.kickedMessage }}</p>
+          <button class="back-btn" style="margin-top:1rem" (click)="router.navigate(['/dashboard'])">Back to Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="wr-root" *ngIf="!vm.lobby && !vm.loadError && !vm.kickedMessage">
+        <div class="loading-screen">
+          <div class="spinner"></div>
+          <span>Loading Lobby…</span>
+        </div>
+      </div>
+
+      <!-- Waiting Room -->
+      <div class="wr-root" *ngIf="vm.lobby && !vm.kickedMessage">
+        <!-- Header -->
+        <header class="wr-header">
+          <div class="wr-header-left">
+            <button class="back-btn" (click)="router.navigate(['/dashboard'])">← Back</button>
+            <div>
+              <h1 class="wr-lobby-name">{{ vm.lobby.name }}</h1>
+              <span class="status-pill" [class]="vm.lobby.status">{{ vm.lobby.status | uppercase }}</span>
+            </div>
+          </div>
+
+          <div class="wr-header-center">
+            <div class="invite-block">
+              <span class="inv-label">INVITE CODE</span>
+              <div class="inv-code-row">
+                <span class="inv-code">{{ vm.lobby.inviteCode }}</span>
+                <button class="copy-btn" (click)="copyCode()" [class.copied]="vm.codeCopied">
+                  {{ vm.codeCopied ? '✅ Copied!' : '📋 Copy' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="wr-header-right">
+            <div class="participant-count">
+              <span class="count-num">{{ vm.lobby.participants.length }}</span>
+              <span class="count-sep">/</span>
+              <span class="count-max">{{ vm.lobby.maxPlayers }}</span>
+              <span class="count-label">players</span>
+            </div>
+            <div class="purse-info">💰 ₹{{ vm.lobby.purse }} Cr each</div>
+            <div class="ws-status" [class.connected]="vm.wsConnected" [class.disconnected]="!vm.wsConnected">
+              <span class="ws-dot"></span>{{ vm.wsConnected ? 'Live' : 'Reconnecting…' }}
+            </div>
+          </div>
+        </header>
+
+        <!-- Participants Grid -->
+        <main class="wr-main">
+          <section class="participants-section">
+            <div class="section-header">
+              <h2 class="section-title">🏟️ Teams in Lobby</h2>
+              <div class="live-dot" [class.pulsing]="true">
+                <span class="dot"></span>LIVE
+              </div>
+            </div>
+
+            <!-- Empty state -->
+            <div class="empty-state" *ngIf="vm.lobby.participants.length === 0">
+              <div class="empty-icon">👥</div>
+              <p>No participants yet. Share the invite code!</p>
+            </div>
+
+            <div class="participants-grid">
+              <div
+                *ngFor="let p of vm.lobby.participants; let i = index"
+                class="participant-card"
+                [style.--ipl-color]="teamColor(p.iplTeam)"
+                [class.is-admin]="p.userId === vm.lobby.adminId"
+              >
+                <!-- Card top accent bar -->
+                <div class="card-accent" [style.background]="teamColor(p.iplTeam)"></div>
+
+                <!-- Avatar + info -->
+                <div class="card-body">
+                  <div class="card-avatar" [style.background]="teamColor(p.iplTeam)">
+                    {{ avatarLetter(p) }}
+                  </div>
+                  <div class="card-info">
+                    <div class="card-username">
+                      {{ p.username || 'Player ' + (i + 1) }}
+                      <span class="admin-crown" *ngIf="p.userId === vm.lobby.adminId">👑</span>
+                    </div>
+                    <div class="card-teamname">{{ p.teamName }}</div>
+                  </div>
+                </div>
+
+                <!-- IPL Badge -->
+                <div class="ipl-badge" [style.background]="teamColorFade(p.iplTeam)" [style.border-color]="teamColor(p.iplTeam)">
+                  <span class="ipl-code" [style.color]="teamColor(p.iplTeam)">{{ p.iplTeam }}</span>
+                  <span class="ipl-name">{{ teamLabel(p.iplTeam) }}</span>
+                </div>
+
+                <!-- Purse -->
+                <div class="card-purse">
+                  <span class="purse-icon">💰</span>
+                  <span class="purse-val">₹{{ p.purseRemaining }} Cr</span>
+                </div>
+
+                <!-- Kick button (admin only, not self) -->
+                <button
+                  *ngIf="vm.isAdmin && p.userId !== vm.currentUserId"
+                  class="kick-btn"
+                  (click)="kickParticipant(p)"
+                >✕ Kick</button>
+              </div>
+
+              <!-- Empty slots -->
+              <div
+                *ngFor="let slot of getEmptySlots(vm.lobby)"
+                class="participant-card empty-card"
+              >
+                <div class="empty-slot-icon">+</div>
+                <div class="empty-slot-label">Waiting for player…</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Admin Controls -->
+          <section class="control-section" *ngIf="vm.isAdmin">
+            <div class="control-wrap">
+              <div class="control-info">
+                <span class="ctrl-icon">👑</span>
+                <div>
+                  <div class="ctrl-title">You're the host</div>
+                  <div class="ctrl-sub">
+                    {{ canStart(vm.lobby) ? 'Ready to begin the auction!' : 'Need at least 2 players to start.' }}
+                  </div>
+                </div>
+              </div>
+              <button
+                class="start-btn"
+                [disabled]="!canStart(vm.lobby) || vm.auctionStarting"
+                (click)="startAuction()"
+              >
+                <span *ngIf="!vm.auctionStarting">🔨 Start Auction</span>
+                <span *ngIf="vm.auctionStarting">Starting…</span>
               </button>
             </div>
-          </div>
-        </div>
+            <div class="error-banner" *ngIf="vm.actionError">{{ vm.actionError }}</div>
+          </section>
 
-        <div class="wr-header-right">
-          <div class="participant-count">
-            <span class="count-num">{{ lobby.participants.length }}</span>
-            <span class="count-sep">/</span>
-            <span class="count-max">{{ lobby.maxPlayers }}</span>
-            <span class="count-label">players</span>
-          </div>
-          <div class="purse-info">💰 ₹{{ lobby.purse }} Cr each</div>
-        </div>
-      </header>
-
-      <!-- Participants Grid -->
-      <main class="wr-main">
-        <section class="participants-section">
-          <div class="section-header">
-            <h2 class="section-title">🏟️ Teams in Lobby</h2>
-            <div class="live-dot" [class.pulsing]="true">
-              <span class="dot"></span>LIVE
+          <!-- Non-admin message -->
+          <section class="control-section" *ngIf="!vm.isAdmin">
+            <div class="waiting-msg">
+              <span class="spin-ball">🏏</span>
+              Waiting for the host to start the auction…
             </div>
-          </div>
-
-          <!-- Empty state -->
-          <div class="empty-state" *ngIf="lobby.participants.length === 0">
-            <div class="empty-icon">👥</div>
-            <p>No participants yet. Share the invite code!</p>
-          </div>
-
-          <div class="participants-grid">
-            <div
-              *ngFor="let p of lobby.participants; let i = index"
-              class="participant-card"
-              [style.--ipl-color]="teamColor(p.iplTeam)"
-              [class.is-admin]="p.userId === lobby.adminId"
-            >
-              <!-- Card top accent bar -->
-              <div class="card-accent" [style.background]="teamColor(p.iplTeam)"></div>
-
-              <!-- Avatar + info -->
-              <div class="card-body">
-                <div class="card-avatar" [style.background]="teamColor(p.iplTeam)">
-                  {{ avatarLetter(p) }}
-                </div>
-                <div class="card-info">
-                  <div class="card-username">
-                    {{ p.username || 'Player ' + (i + 1) }}
-                    <span class="admin-crown" *ngIf="p.userId === lobby.adminId">👑</span>
-                  </div>
-                  <div class="card-teamname">{{ p.teamName }}</div>
-                </div>
-              </div>
-
-              <!-- IPL Badge -->
-              <div class="ipl-badge" [style.background]="teamColorFade(p.iplTeam)" [style.border-color]="teamColor(p.iplTeam)">
-                <span class="ipl-code" [style.color]="teamColor(p.iplTeam)">{{ p.iplTeam }}</span>
-                <span class="ipl-name">{{ teamLabel(p.iplTeam) }}</span>
-              </div>
-
-              <!-- Purse -->
-              <div class="card-purse">
-                <span class="purse-icon">💰</span>
-                <span class="purse-val">₹{{ p.purseRemaining }} Cr</span>
-              </div>
-
-              <!-- Kick button (admin only, not self) -->
-              <button
-                *ngIf="isAdmin && p.userId !== currentUserId"
-                class="kick-btn"
-                (click)="kickParticipant(p)"
-              >✕ Kick</button>
-            </div>
-
-            <!-- Empty slots -->
-            <div
-              *ngFor="let slot of emptySlots"
-              class="participant-card empty-card"
-            >
-              <div class="empty-slot-icon">+</div>
-              <div class="empty-slot-label">Waiting for player…</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Admin Controls -->
-        <section class="control-section" *ngIf="isAdmin">
-          <div class="control-wrap">
-            <div class="control-info">
-              <span class="ctrl-icon">👑</span>
-              <div>
-                <div class="ctrl-title">You're the host</div>
-                <div class="ctrl-sub">
-                  {{ canStart ? 'Ready to begin the auction!' : 'Need at least 2 players to start.' }}
-                </div>
-              </div>
-            </div>
-            <button
-              class="start-btn"
-              [disabled]="!canStart || auctionStarting"
-              (click)="startAuction()"
-            >
-              <span *ngIf="!auctionStarting">🔨 Start Auction</span>
-              <span *ngIf="auctionStarting">Starting…</span>
-            </button>
-          </div>
-          <div class="error-banner" *ngIf="actionError">{{ actionError }}</div>
-        </section>
-
-        <!-- Non-admin message -->
-        <section class="control-section" *ngIf="!isAdmin">
-          <div class="waiting-msg">
-            <span class="spin-ball">🏏</span>
-            Waiting for the host to start the auction…
-          </div>
-        </section>
-      </main>
-    </div>
+          </section>
+        </main>
+      </div>
+    </ng-container>
   `,
   styles: [
     `
@@ -214,7 +240,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
       .back-btn {
         background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
         color: #8a9bb0; padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.8rem;
-        cursor: pointer; transition: all 0.2s;
+        cursor: pointer; transition: all 0.2s; font-family: inherit;
       }
       .back-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
@@ -254,6 +280,14 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
       .count-sep, .count-max { color: #4a5568; }
       .count-label { font-size: 0.7rem; color: #4a5568; margin-left: 4px; }
       .purse-info { font-size: 0.75rem; color: #4a5568; margin-top: 2px; }
+
+      /* WS connection indicator */
+      .ws-status { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; font-weight: 600; margin-top: 4px; letter-spacing: 0.5px; }
+      .ws-dot { width: 6px; height: 6px; border-radius: 50%; }
+      .ws-status.connected { color: #2ecc71; }
+      .ws-status.connected .ws-dot { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+      .ws-status.disconnected { color: #fc5c65; }
+      .ws-status.disconnected .ws-dot { background: #fc5c65; }
 
       /* ── Main ── */
       .wr-main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
@@ -400,23 +434,42 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
   ],
 })
 export class LobbyWaitingRoomComponent implements OnInit, OnDestroy {
-  lobby: LobbyDTO | null = null;
-  isAdmin = false;
-  currentUserId = "";
-  codeCopied = false;
-  actionError = "";
-  auctionStarting = false;
-  loadError = "";
+  // --- Signals for State ---
+  private lobbySig = signal<LobbyDTO | null>(null);
+  private wsConnectedSig = signal<boolean>(false);
+  private kickedMessageSig = signal<string>("");
+  private loadErrorSig = signal<string>("");
+  private actionErrorSig = signal<string>("");
+  private auctionStartingSig = signal<boolean>(false);
+  private codeCopiedSig = signal<boolean>(false);
+  private currentUserIdSig = signal<string>("");
 
+  vm = computed(() => {
+    const lobby = this.lobbySig();
+    const currentUserId = this.currentUserIdSig();
+    return {
+      lobby,
+      isAdmin: lobby ? lobby.adminId === currentUserId : false,
+      wsConnected: this.wsConnectedSig(),
+      loadError: this.loadErrorSig(),
+      kickedMessage: this.kickedMessageSig(),
+      actionError: this.actionErrorSig(),
+      auctionStarting: this.auctionStartingSig(),
+      codeCopied: this.codeCopiedSig(),
+      currentUserId,
+    };
+  });
 
   private ws: WebSocket | null = null;
+  private lobbyId = "";
+  private destroyed = false;
 
   constructor(
     private route: ActivatedRoute,
     public router: Router,
     private lobbyService: LobbyService,
-    private authService: AuthService,
-  ) { }
+    private authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get("id");
@@ -424,50 +477,75 @@ export class LobbyWaitingRoomComponent implements OnInit, OnDestroy {
       this.router.navigate(["/dashboard"]);
       return;
     }
+    this.lobbyId = id;
 
     const raw = localStorage.getItem("bidxi_user");
     if (raw) {
-      try { this.currentUserId = JSON.parse(raw).id; } catch { /* noop */ }
+      try { this.currentUserIdSig.set(JSON.parse(raw).id); } catch { /* noop */ }
     }
 
-    // ── Instant render: use lobby data passed via router state (from dashboard) ──
-    // This avoids any spinner — the page renders the moment navigation completes.
+    // Instant render from router state
     const statelobby = (history.state as { lobby?: LobbyDTO }).lobby;
     if (statelobby) {
-      this.lobby = statelobby;
-      this.isAdmin = this.lobby.adminId === this.currentUserId;
+      this.lobbySig.set(statelobby);
     }
 
-    // Load initial state then connect to WebSocket for updates
     this.loadLobby(id);
     this.connectWebSocket(id);
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
   }
 
   connectWebSocket(id: string): void {
-    // Determine WS protocol (ws:// or wss://) based on current HTTP protocol
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    // For local dev Hardcode to localhost:8080/api... if we want, or use relative to host
-    const wsUrl = `ws://localhost:8080/api/lobbies/${id}/ws?token=${this.authService.getToken()}`;
+    if (this.destroyed) return;
 
+    if (this.ws) { this.ws.close(); this.ws = null; }
+
+    const wsUrl = `ws://localhost:8080/api/lobbies/${id}/ws?token=${this.authService.getToken()}`;
     this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      this.wsConnectedSig.set(true);
+    };
 
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "LOBBY_UPDATED") {
-          this.lobby = data.payload;
-          this.lobby!.participants = this.lobby!.participants ?? [];
-          this.isAdmin = this.lobby!.adminId === this.currentUserId;
+        const currentUserId = this.currentUserIdSig();
 
-          if (this.lobby!.status === "active") {
+        if (data.type === "KICKED") {
+          this.kickedMessageSig.set(data.payload?.reason || "You have been removed from the lobby by the host.");
+          this.lobbySig.set(null);
+          this.ws?.close();
+          this.ws = null;
+          return;
+        }
+
+        if (data.type === "LOBBY_UPDATED") {
+          const lobby = data.payload as LobbyDTO;
+          lobby.participants = lobby.participants ?? [];
+          this.lobbySig.set(lobby);
+
+          const isAdmin = lobby.adminId === currentUserId;
+          const stillIn = lobby.participants.some(p => p.userId === currentUserId);
+
+          if (!stillIn && !isAdmin) {
+            this.kickedMessageSig.set("You have been removed from this lobby.");
+            this.lobbySig.set(null);
+            this.ws?.close();
+            this.ws = null;
+            return;
+          }
+
+          if (lobby.status === "active") {
             this.router.navigate([`/lobbies/${id}/auction`]);
-          } else if (this.lobby!.status === "completed") {
+          } else if (lobby.status === "completed") {
             localStorage.removeItem("bidxi_current_lobby");
           }
         }
@@ -476,51 +554,50 @@ export class LobbyWaitingRoomComponent implements OnInit, OnDestroy {
       }
     };
 
-    this.ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
+    this.ws.onerror = () => {
+      this.wsConnectedSig.set(false);
     };
 
     this.ws.onclose = () => {
-      console.log("WebSocket disconnected. Retrying in 5s...");
-      // Simple reconnect logic if disconnected before active
-      setTimeout(() => {
-        if (!this.lobby || this.lobby.status === "waiting") {
-          this.connectWebSocket(id);
-        }
-      }, 5000);
+      this.wsConnectedSig.set(false);
+      if (!this.destroyed && !this.kickedMessageSig()) {
+        setTimeout(() => {
+          if (!this.destroyed && (!this.lobbySig() || this.lobbySig()!.status === "waiting")) {
+            this.connectWebSocket(id);
+          }
+        }, 3000);
+      }
     };
   }
 
   loadLobby(id: string): void {
     this.lobbyService.getLobby(id).subscribe({
       next: (res) => {
-        this.loadError = "";
-        this.lobby = res.data;
-        this.lobby.participants = this.lobby.participants ?? [];
-        this.isAdmin = this.lobby.adminId === this.currentUserId;
+        const lobby = res.data;
+        lobby.participants = lobby.participants ?? [];
+        this.loadErrorSig.set("");
+        this.lobbySig.set(lobby);
         localStorage.setItem("bidxi_current_lobby", id);
-        // Auto-redirect when auction starts
-        if (this.lobby.status === "active") {
-          localStorage.setItem("bidxi_current_lobby", id); // keep for auction page
+
+        if (lobby.status === "active") {
           this.router.navigate([`/lobbies/${id}/auction`]);
-        } else if (this.lobby.status === "completed") {
+        } else if (lobby.status === "completed") {
           localStorage.removeItem("bidxi_current_lobby");
         }
       },
       error: (err: Error) => {
-        this.loadError = err.message || "Failed to load lobby.";
-        console.error("[WaitingRoom] loadLobby error:", err);
+        this.loadErrorSig.set(err.message || "Failed to load lobby.");
       },
     });
   }
 
-  get canStart(): boolean {
-    return !!this.lobby && this.lobby.participants.length >= 2 && this.lobby.status === "waiting";
+  canStart(lobby: LobbyDTO | null): boolean {
+    return !!lobby && lobby.participants.length >= 2 && lobby.status === "waiting";
   }
 
-  get emptySlots(): number[] {
-    if (!this.lobby) return [];
-    const empty = this.lobby.maxPlayers - this.lobby.participants.length;
+  getEmptySlots(lobby: LobbyDTO | null): number[] {
+    if (!lobby) return [];
+    const empty = lobby.maxPlayers - lobby.participants.length;
     return Array.from({ length: Math.max(0, Math.min(empty, 4)) }, (_, i) => i);
   }
 
@@ -530,7 +607,7 @@ export class LobbyWaitingRoomComponent implements OnInit, OnDestroy {
 
   teamColorFade(code: string): string {
     const c = IPL_TEAM_MAP[code]?.color ?? "#4a5568";
-    return c + "22"; // 13% opacity hex
+    return c + "22";
   }
 
   teamLabel(code: string): string {
@@ -542,34 +619,34 @@ export class LobbyWaitingRoomComponent implements OnInit, OnDestroy {
   }
 
   copyCode(): void {
-    if (!this.lobby) return;
-    navigator.clipboard.writeText(this.lobby.inviteCode).then(() => {
-      this.codeCopied = true;
-      setTimeout(() => (this.codeCopied = false), 2500);
+    const lobby = this.lobbySig();
+    if (!lobby) return;
+    navigator.clipboard.writeText(lobby.inviteCode).then(() => {
+      this.codeCopiedSig.set(true);
+      setTimeout(() => this.codeCopiedSig.set(false), 2500);
     });
   }
 
   kickParticipant(p: ParticipantDTO): void {
-    if (!this.lobby) return;
-    this.actionError = "";
-    this.lobbyService.kickParticipant(this.lobby.id, p.userId).subscribe({
-      next: () => this.loadLobby(this.lobby!.id),
-      error: (err: Error) => (this.actionError = err.message || "Unable to kick participant"),
+    const lobby = this.lobbySig();
+    if (!lobby) return;
+    this.actionErrorSig.set("");
+    this.lobbyService.kickParticipant(lobby.id, p.userId).subscribe({
+      next: () => {},
+      error: (err: Error) => this.actionErrorSig.set(err.message || "Unable to kick participant"),
     });
   }
 
   startAuction(): void {
-    if (!this.lobby || !this.canStart) return;
-    this.actionError = "";
-    this.auctionStarting = true;
-    this.lobbyService.startAuction(this.lobby.id).subscribe({
-      next: () => {
-        // loadLobby poll will detect status=active and redirect
-        this.loadLobby(this.lobby!.id);
-      },
+    const lobby = this.lobbySig();
+    if (!lobby || !this.canStart(lobby)) return;
+    this.actionErrorSig.set("");
+    this.auctionStartingSig.set(true);
+    this.lobbyService.startAuction(lobby.id).subscribe({
+      next: () => {},
       error: (err: Error) => {
-        this.auctionStarting = false;
-        this.actionError = err.message || "Unable to start auction";
+        this.auctionStartingSig.set(false);
+        this.actionErrorSig.set(err.message || "Unable to start auction");
       },
     });
   }

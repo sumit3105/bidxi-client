@@ -1,189 +1,449 @@
-import { Component, OnInit, OnDestroy } from "@angular/core";
+import { Component, OnInit, OnDestroy, signal, computed } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LobbyService } from "../../core/services/lobby.service";
-import { LobbyDTO } from "../../core/models/lobby.model";
+import { AuthService } from "../../core/services/auth.service";
+import { LobbyDTO, ParticipantDTO, SoldRecordDTO, PlayerDTO, AuctionRoomDTO } from "../../core/models/lobby.model";
+
+const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
+  MI: { color: "#004BA0", label: "Mumbai Indians" },
+  CSK: { color: "#FDB913", label: "Chennai Super Kings" },
+  RCB: { color: "#EC1C24", label: "Royal Challengers Bengaluru" },
+  KKR: { color: "#3A225D", label: "Kolkata Knight Riders" },
+  DC: { color: "#0078BC", label: "Delhi Capitals" },
+  PBKS: { color: "#ED1B24", label: "Punjab Kings" },
+  SRH: { color: "#F26522", label: "Sunrisers Hyderabad" },
+  RR: { color: "#254AA5", label: "Rajasthan Royals" },
+  GT: { color: "#1B2133", label: "Gujarat Titans" },
+  LSG: { color: "#A72056", label: "Lucknow Super Giants" },
+};
 
 @Component({
   selector: "app-auction-room",
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="ar-root">
-      <!-- Header -->
+    <div class="ar-root" *ngIf="vm() as vm">
+      <!-- ══ Header ══ -->
       <header class="ar-header">
-        <div class="logo">🏏 BidXI</div>
-        <div class="lobby-info" *ngIf="lobby">
-          <span class="lobby-name">{{ lobby.name }}</span>
-          <span class="live-badge">● LIVE AUCTION</span>
+        <div class="header-left">
+          <span class="logo">🏏 BidXI</span>
         </div>
-        <button class="back-btn" (click)="router.navigate(['/dashboard'])">Exit</button>
+        <div class="lobby-info" *ngIf="vm.lobby">
+          <div class="lobby-name">{{ vm.lobby.name }}</div>
+          <div class="status-indicator">
+            <span class="pulse" [class.paused]="vm.auction?.status === 'paused' || !vm.auction?.isHostPresent"></span>
+            {{ (!vm.auction?.isHostPresent && vm.auction?.status !== 'idle') ? 'HOST AWAY' : (vm.auction?.status?.toUpperCase() || 'IDLE') }}
+          </div>
+        </div>
+        <div class="header-right">
+          <button class="exit-btn" (click)="exitAuction()">EXIT ROOM</button>
+        </div>
       </header>
 
-      <!-- Coming Soon Banner -->
-      <main class="ar-main">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
+      <!-- ══ Main Content ══ -->
+      <main class="ar-main" *ngIf="vm.lobby">
 
-        <div class="stage-card">
-          <div class="hammer-icon">🔨</div>
-          <h1 class="stage-title">Auction Room</h1>
-          <p class="stage-sub" *ngIf="lobby">
-            <strong>{{ lobby.name }}</strong> · {{ lobby.participants.length }} teams · ₹{{ lobby.purse }} Cr each
-          </p>
-          <p class="stage-desc">
-            The live bidding engine is coming soon. The auction room will feature:
-          </p>
+        <!-- ═══ Sidebar (Unified) ═══ -->
+        <aside class="sidebar">
+          
+          <div class="sb-tabs">
+            <button class="tab-btn" [class.active]="vm.activeTab === 'feed'" (click)="setTab('feed')">LIVE FEED</button>
+            <button class="tab-btn" [class.active]="vm.activeTab === 'squads'" (click)="setTab('squads')">SQUADS</button>
+          </div>
 
-          <div class="feature-grid">
-            <div class="feature-item">
-              <span class="fi">🏃</span>
-              <div>
-                <div class="ft">Player Spotlight</div>
-                <div class="fs">Live player card with role, nationality &amp; base price</div>
+          <div class="sb-content" [ngSwitch]="vm.activeTab">
+            
+            <!-- LIVE FEED TAB -->
+            <div *ngSwitchCase="'feed'" class="tab-pane animate-in">
+              <!-- 👥 Participants Section -->
+              <section class="sb-section participants-section">
+                <h4 class="section-title">TEAMS & BUDGET</h4>
+                <div class="team-list">
+                  <div *ngFor="let p of vm.lobby.participants" class="team-item" 
+                       [class.is-highest]="vm.auction?.highestBidderId === p.userId"
+                       [style.border-left-color]="iplColor(p.iplTeam)">
+                    <div class="team-row">
+                      <span class="team-bubble" [style.background]="iplColor(p.iplTeam)">{{ iplInitial(p.iplTeam) }}</span>
+                      <div class="team-name-col">
+                        <div class="username">{{ p.username }} <span class="you" *ngIf="p.userId === vm.currentUserId">YOU</span></div>
+                        <div class="ipl-team">{{ p.iplTeam }}</div>
+                      </div>
+                      <div class="purse-col">₹{{ p.purseRemaining }} Cr</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 📋 Upcoming Pool Section -->
+              <section class="sb-section pool-section">
+                <h4 class="section-title">UPCOMING POOL</h4>
+                <div class="pool-list">
+                  <div *ngFor="let p of vm.upcomingPool.slice(0, 5); let i = index" class="pool-item" [class.next]="i === 0">
+                    <span class="p-idx">{{ i === 0 ? 'UP' : i + 1 }}</span>
+                    <span class="p-name">{{ p.name }}</span>
+                    <span class="p-role">{{ p.role }}</span>
+                  </div>
+                  <div *ngIf="vm.upcomingPool.length === 0 && vm.auction?.status !== 'completed'" class="empty-msg">Waiting for next pool...</div>
+                </div>
+              </section>
+
+              <!-- 🕰️ Latest Sales Section -->
+              <section class="sb-section sales-section">
+                <h4 class="section-title">LATEST SALES</h4>
+                <div class="sales-list">
+                  <div *ngFor="let s of (vm.auction?.soldPlayers || []).slice().reverse() | slice:0:5" class="sale-item">
+                    <div class="s-header">
+                      <span class="s-name">{{ s.playerName }}</span>
+                      <span class="s-price">₹{{ s.soldPrice }}L</span>
+                    </div>
+                    <div class="s-team">Bought by {{ s.iplTeam }}</div>
+                  </div>
+                  <div *ngIf="!vm.auction?.soldPlayers?.length" class="empty-msg">No sales yet.</div>
+                </div>
+              </section>
+            </div>
+
+            <!-- SQUADS TAB -->
+            <div *ngSwitchCase="'squads'" class="tab-pane animate-in" style="display: flex; flex-direction: column; gap: 15px; overflow-x: hidden;">
+              <div class="team-tabs" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <button *ngFor="let t of vm.squads" class="t-tab-btn" 
+                  [class.active]="vm.selectedTeam === t.userID"
+                  [style.border-bottom-color]="vm.selectedTeam === t.userID ? iplColor(t.iplTeam) : 'transparent'"
+                  (click)="selectTeam(t.userID)">
+                  {{ t.iplTeam }}
+                </button>
+              </div>
+
+              <div *ngFor="let team of vm.squads" class="squad-team-block" [style.display]="vm.selectedTeam === team.userID ? 'block' : 'none'">
+                <h5 class="squad-team-name" [style.color]="iplColor(team.iplTeam)">
+                  <span class="online-indicator" [class.online]="vm.onlineUsers.includes(team.userID)"></span>
+                  {{ team.teamName }} ({{ team.iplTeam }})
+                </h5>
+                <p class="squad-purse">REMAINING: ₹{{ team.purseRemaining }} Cr | PLAYERS: {{ team.squad?.length || 0 }}/25</p>
+                <div class="squad-stats" style="display: flex; gap: 8px; font-size: 0.7rem; margin-bottom: 8px; padding: 0 10px;">
+                  <span [style.color]="countRole(team.squad, 'WK') < 1 ? '#fc5c65' : '#2ecc71'">WK: {{ countRole(team.squad, 'WK') }}/1</span>
+                  <span [style.color]="countRole(team.squad, 'BOWL') < 5 ? '#fc5c65' : '#2ecc71'">BOWL: {{ countRole(team.squad, 'BOWL') }}/5</span>
+                  <span [style.color]="countRole(team.squad, 'BAT') < 5 ? '#fc5c65' : '#2ecc71'">BAT: {{ countRole(team.squad, 'BAT') }}/5</span>
+                  <span [style.color]="countOverseas(team.squad) >= 8 ? '#fc5c65' : '#8a9bb0'">OVS: {{ countOverseas(team.squad) }}/8</span>
+                </div>
+                <div class="squad-grid" *ngIf="team.squad?.length; else emptySquad">
+                  <div *ngFor="let p of team.squad" class="sq-player">
+                    <img [src]="p.imageUrl" class="sq-img">
+                    <div class="sq-info">
+                      <div class="sq-name">{{ p.name }}</div>
+                      <div class="sq-price">SOLD: ₹{{ p.soldPrice || p.basePrice }}L <span style="color:#8a9bb0; font-size: 0.5rem; text-decoration: line-through;">Base: ₹{{ p.basePrice }}L</span></div>
+                    </div>
+                  </div>
+                </div>
+                <ng-template #emptySquad>
+                  <div class="sq-empty">No players bought</div>
+                </ng-template>
               </div>
             </div>
-            <div class="feature-item">
-              <span class="fi">⏱️</span>
-              <div>
-                <div class="ft">10-Second RTT Timer</div>
-                <div class="fs">Real-time countdown that resets on every bid</div>
+
+          </div>
+
+        </aside>
+
+        <!-- ═══ Center Stage ═══ -->
+        <section class="center-stage">
+          
+          <!-- Admin Controls HUD -->
+          <div class="admin-hud" *ngIf="vm.isAdmin && vm.auction?.status !== 'idle' && vm.auction?.status !== 'paused'">
+             <button class="hud-btn pause" *ngIf="vm.auction?.status === 'bidding'" (click)="toggleAuction('pause')" [disabled]="vm.actionLoading">PAUSE</button>
+             <button class="hud-btn next" *ngIf="vm.auction?.status === 'sold' || vm.auction?.status === 'unsold'" (click)="toggleAuction('next')" [disabled]="vm.actionLoading">NEXT PLAYER 🔨</button>
+          </div>
+
+          <div class="spotlight-area">
+            <div class="player-card" 
+                 *ngIf="vm.currentPlayer" 
+                 [class.is-sold]="vm.auction?.status === 'sold'"
+                 [class.is-unsold]="vm.auction?.status === 'unsold'"
+                 [class.hammer-shake]="(vm.auction?.timerSeconds || 0) <= 3 && vm.auction?.status === 'bidding'">
+              
+              <div class="p-category">{{ vm.currentPlayer.category }}</div>
+              <div class="p-role-badge">{{ vm.currentPlayer.role }}</div>
+              
+              <img [src]="vm.currentPlayer.imageUrl" class="p-img">
+              
+              <div class="p-base">BASE PRICE: ₹{{ vm.currentPlayer.basePrice }}L</div>
+              <div class="p-info">
+                <h1 class="p-title">{{ vm.currentPlayer.name }}</h1>
+                <p class="p-nat">{{ vm.currentPlayer.nationality }}</p>
               </div>
             </div>
-            <div class="feature-item">
-              <span class="fi">💰</span>
-              <div>
-                <div class="ft">Live Bidding</div>
-                <div class="fs">+5L / +10L / +25L quick bids, custom amount</div>
-              </div>
+
+            <div class="overlay sold" *ngIf="vm.auction?.status === 'sold'">SOLD!</div>
+            <div class="overlay unsold" *ngIf="vm.auction?.status === 'unsold'">UNSOLD</div>
+            
+            <div class="idle-state" *ngIf="vm.auction?.status === 'idle'">
+              <div class="spinner" *ngIf="!vm.isAdmin"></div>
+              <p *ngIf="!vm.isAdmin">WAITING FOR ADMIN TO START</p>
+              <button class="big-action-btn start animate-in" *ngIf="vm.isAdmin" (click)="toggleAuction('start')" [disabled]="vm.actionLoading">
+                🚀 START AUCTION
+              </button>
             </div>
-            <div class="feature-item">
-              <span class="fi">📊</span>
-              <div>
-                <div class="ft">Purse Tracker</div>
-                <div class="fs">All teams' remaining purse visible in real time</div>
+
+            <div class="completed-state" *ngIf="vm.auction?.status === 'completed'" style="text-align: center; margin-top: 50px; background: rgba(0,0,0,0.5); padding: 30px; border-radius: 12px; border: 1px solid #ffd700;">
+              <h2 style="color: #ffd700; margin-bottom: 10px; font-size: 2rem;">🏆 AUCTION COMPLETED 🏆</h2>
+              <p style="color: #fff; margin-bottom: 20px;">All players have been auctioned!</p>
+              <button class="big-action-btn start animate-in" (click)="setTab('squads')">
+                VIEW FULL SQUADS
+              </button>
+            </div>
+            
+            <div class="paused-state" *ngIf="vm.auction?.status === 'paused'">
+              <div class="pause-icon" *ngIf="!vm.isAdmin">||</div>
+              <p *ngIf="!vm.isAdmin">AUCTION PAUSED BY ADMIN</p>
+              <button class="big-action-btn resume animate-in" *ngIf="vm.isAdmin" (click)="toggleAuction('resume')" [disabled]="vm.actionLoading">
+                ⚔️ RESUME AUCTION
+              </button>
+            </div>
+
+            <!-- Host Presence Overlay -->
+            <div class="host-away-overlay" *ngIf="!vm.isAdmin && !vm.auction?.isHostPresent && vm.auction?.status !== 'idle' && vm.auction?.status !== 'completed'">
+              <div class="away-content">
+                <div class="caution-icon">⚠️</div>
+                <h2>HOST IS DISCONNECTED</h2>
+                <p>The auction is temporarily closed. It will automatically resume once the Admin returns.</p>
               </div>
             </div>
           </div>
 
-          <div class="teams-strip" *ngIf="lobby">
-            <div
-              *ngFor="let p of lobby.participants"
-              class="team-chip"
-              [style.border-color]="iplColor(p.iplTeam)"
-            >
-              <span class="tc-code" [style.color]="iplColor(p.iplTeam)">{{ p.iplTeam }}</span>
-              <span class="tc-name">{{ p.teamName }}</span>
-              <span class="tc-purse">₹{{ p.purseRemaining }}Cr</span>
+          <!-- Bidding Console -->
+          <div class="bidding-console" *ngIf="vm.auction?.status === 'bidding' || vm.auction?.status === 'paused'">
+            
+            <div class="timer-orb" [class.critical]="(vm.auction?.timerSeconds || 0) <= 3" [class.paused]="vm.auction?.status === 'paused'">
+              <span class="timer-label">{{ vm.auction?.timerSeconds }}s</span>
+              <svg viewBox="0 0 100 100">
+                <circle class="orb-bg" cx="50" cy="50" r="45"></circle>
+                <circle class="orb-progress" cx="50" cy="50" r="45" [style.stroke-dashoffset]="283 - ((vm.auction?.timerSeconds || 0) * 28.3)"></circle>
+              </svg>
+            </div>
+
+            <div class="bid-info">
+              <span class="label">CURRENT BID</span>
+              <div class="value">₹{{ vm.auction?.currentBid }} <small>Lakhs</small></div>
+              <div class="leader" *ngIf="vm.auction?.highestBidderId">
+                 <span class="dot"></span> Leading: {{ getParticipantName(vm.lobby, vm.auction?.highestBidderId || '') }}
+              </div>
+              <div class="leader none" *ngIf="!vm.auction?.highestBidderId">No bids yet</div>
+            </div>
+
+            <div class="bid-actions" *ngIf="vm.auction?.status === 'bidding'">
+              <div class="bid-tips">MY PURSE: ₹{{ getMyPurse(vm.lobby, vm.currentUserId) }} Cr</div>
+              <div class="action-row" *ngIf="vm.auction?.highestBidderId; else openingBid">
+                <button class="bid-btn" (click)="placeBid((vm.auction?.currentBid || 0) + getIncrement(vm.auction?.currentBid || 0))" 
+                  [disabled]="vm.actionLoading || vm.auction?.highestBidderId === vm.currentUserId || !canAfford(vm.lobby, vm.currentUserId, (vm.auction?.currentBid || 0) + getIncrement(vm.auction?.currentBid || 0))">
+                  +{{ getIncrement(vm.auction?.currentBid || 0) }}L
+                </button>
+              </div>
+              <ng-template #openingBid>
+                <div class="action-row">
+                  <button class="bid-btn" (click)="placeBid(vm.auction?.currentBid || 0)" 
+                    [disabled]="vm.actionLoading || !canAfford(vm.lobby, vm.currentUserId, vm.auction?.currentBid || 0)">
+                    BID ₹{{ vm.auction?.currentBid }}L
+                  </button>
+                </div>
+              </ng-template>
             </div>
           </div>
-        </div>
+
+        </section>
+
       </main>
     </div>
   `,
-  styles: [`
-    :host { display: block; min-height: 100vh; background: #070c1a; color: #fff; font-family: 'Inter','Segoe UI',sans-serif; overflow: hidden; }
-
-    .ar-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 2rem;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid rgba(255,255,255,0.07);
-    }
-    .logo { font-size: 1.3rem; font-weight: 800; background: linear-gradient(135deg,#f7b731,#fd9644); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .lobby-info { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .lobby-name { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
-    .live-badge { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px; color: #fc5c65; animation: blink 1.2s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
-    .back-btn { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #8a9bb0; padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-family: inherit; transition: all .2s; }
-    .back-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
-
-    .ar-main { position: relative; min-height: calc(100vh - 56px); display: flex; align-items: center; justify-content: center; padding: 2rem; }
-
-    .glow-orb { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; }
-    .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(247,183,49,0.12), transparent 70%); top: -100px; left: -100px; }
-    .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(74,144,226,0.1), transparent 70%); bottom: -80px; right: -80px; }
-
-    .stage-card {
-      position: relative; z-index: 1;
-      max-width: 780px; width: 100%;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 24px;
-      padding: 3rem 2.5rem;
-      text-align: center;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
-    }
-    .hammer-icon { font-size: 3.5rem; margin-bottom: 1rem; animation: swing 2s ease-in-out infinite; display: inline-block; transform-origin: top center; }
-    @keyframes swing { 0%,100%{transform:rotate(-10deg)} 50%{transform:rotate(10deg)} }
-
-    .stage-title {
-      font-size: 2.2rem; font-weight: 900; margin: 0 0 0.5rem;
-      background: linear-gradient(135deg,#fff 40%,#f7b731); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .stage-sub { color: #8a9bb0; font-size: 0.95rem; margin: 0 0 1.5rem; }
-    .stage-desc { color: #6b7a8d; font-size: 0.875rem; margin-bottom: 1.75rem; }
-
-    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: left; margin-bottom: 2rem; }
-    .feature-item { display: flex; align-items: flex-start; gap: 0.75rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 1rem; }
-    .fi { font-size: 1.6rem; flex-shrink: 0; }
-    .ft { font-size: 0.85rem; font-weight: 700; color: #e2e8f0; margin-bottom: 3px; }
-    .fs { font-size: 0.75rem; color: #4a5568; line-height: 1.4; }
-
-    .teams-strip { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 1.5rem; }
-    .team-chip {
-      display: flex; align-items: center; gap: 0.4rem;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid;
-      border-radius: 8px; padding: 0.35rem 0.75rem;
-    }
-    .tc-code { font-size: 0.75rem; font-weight: 800; }
-    .tc-name { font-size: 0.75rem; color: #8a9bb0; }
-    .tc-purse { font-size: 0.7rem; color: #4a5568; margin-left: 4px; }
-
-    @media (max-width: 600px) {
-      .feature-grid { grid-template-columns: 1fr; }
-      .stage-card { padding: 2rem 1.25rem; }
-      .stage-title { font-size: 1.6rem; }
-    }
-  `]
+  styleUrls: ["./auction-room.component.css"]
 })
 export class AuctionRoomComponent implements OnInit, OnDestroy {
-  lobby: LobbyDTO | null = null;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private lobbySig = signal<LobbyDTO | null>(null);
+  private auctionSig = signal<AuctionRoomDTO | null>(null);
+  private currentPlayerSig = signal<PlayerDTO | null>(null);
+  private upcomingPoolSig = signal<PlayerDTO[]>([]);
+  private currentUserIdSig = signal<string>("");
+  private actionErrorSig = signal<string>("");
+  private actionLoadingSig = signal<boolean>(false);
+  private activeTabSig = signal<'feed' | 'squads'>('feed');
+  private squadsSig = signal<any[]>([]);
+  private selectedTeamSig = signal<string>("");
+  private onlineUsersSig = signal<string[]>([]);
 
-  private readonly IPL_COLORS: Record<string, string> = {
-    MI: "#004BA0", CSK: "#FDB913", RCB: "#EC1C24", KKR: "#3A225D",
-    DC: "#0078BC", PBKS: "#ED1B24", SRH: "#F26522",
-    RR: "#254AA5", GT: "#1B2133", LSG: "#A72056",
-  };
+  vm = computed(() => ({
+    lobby: this.lobbySig(),
+    auction: this.auctionSig(),
+    currentPlayer: this.currentPlayerSig(),
+    upcomingPool: this.upcomingPoolSig(),
+    currentUserId: this.currentUserIdSig(),
+    actionError: this.actionErrorSig(),
+    actionLoading: this.actionLoadingSig(),
+    activeTab: this.activeTabSig(),
+    squads: this.squadsSig(),
+    selectedTeam: this.selectedTeamSig(),
+    onlineUsers: this.onlineUsersSig(),
+    isAdmin: this.lobbySig()?.adminId === this.currentUserIdSig()
+  }));
+
+  private ws: WebSocket | null = null;
+  private destroyed = false;
 
   constructor(
     private route: ActivatedRoute,
     public router: Router,
     private lobbyService: LobbyService,
-  ) {}
+    private authService: AuthService
+  ) { }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get("id");
     if (!id) { this.router.navigate(["/dashboard"]); return; }
+    const raw = localStorage.getItem("bidxi_user");
+    if (raw) { this.currentUserIdSig.set(JSON.parse(raw).id); }
     this.loadLobby(id);
-    // Poll to keep lobby info fresh
-    this.pollInterval = setInterval(() => this.loadLobby(id), 5000);
+    this.loadAuction(id);
+    this.connectWebSocket(id);
   }
 
   ngOnDestroy(): void {
-    if (this.pollInterval) clearInterval(this.pollInterval);
+    this.destroyed = true;
+    if (this.ws) { this.ws.close(); }
+  }
+
+  connectWebSocket(id: string): void {
+    if (this.destroyed) return;
+    if (this.ws) { this.ws.close(); this.ws = null; }
+
+    const wsUrl = `ws://localhost:8080/api/lobbies/${id}/ws?token=${this.authService.getToken()}`;
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onclose = () => {
+      if (!this.destroyed) {
+        setTimeout(() => this.connectWebSocket(id), 2000);
+      }
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        switch (data.type) {
+          case "LOBBY_UPDATED":
+            this.lobbySig.set(data.payload);
+            if (this.activeTabSig() === 'squads') {
+              this.fetchSquads();
+            }
+            break;
+          case "PLAYER_UP":
+            this.currentPlayerSig.set(data.payload.player);
+            this.auctionSig.set(data.payload.room);
+            this.upcomingPoolSig.set(data.payload.upcoming || []);
+            break;
+          case "BID_PLACED":
+            this.auctionSig.set(data.payload);
+            break;
+          case "AUCTION_STATE_UPDATED":
+            if (data.payload.room) this.auctionSig.set(data.payload.room);
+            if (data.payload.player) this.currentPlayerSig.set(data.payload.player);
+            if (data.payload.upcoming) this.upcomingPoolSig.set(data.payload.upcoming);
+            break;
+          case "TIMER_TICK":
+            const cur = this.auctionSig();
+            if (cur) this.auctionSig.set({ ...cur, timerSeconds: data.payload.seconds, status: 'bidding' });
+            break;
+          case "PLAYER_SOLD":
+          case "PLAYER_UNSOLD": this.auctionSig.set(data.payload.room || data.payload); break;
+          case "AUCTION_COMPLETED":
+            this.auctionSig.set(data.payload);
+            this.setTab('squads');
+            break;
+          case "ONLINE_USERS":
+            this.onlineUsersSig.set(data.payload);
+            break;
+        }
+      } catch (err) { }
+    };
   }
 
   loadLobby(id: string): void {
-    this.lobbyService.getLobby(id).subscribe({
-      next: (res) => { this.lobby = res.data; },
-      error: () => {},
+    this.lobbyService.getLobby(id).subscribe({ next: (res) => this.lobbySig.set(res.data) });
+  }
+
+  loadAuction(id: string): void {
+    this.lobbyService.getAuctionRoom(id).subscribe({
+      next: (res) => {
+        if (res.data) {
+          this.auctionSig.set(res.data.room || res.data);
+          if (res.data.player) this.currentPlayerSig.set(res.data.player);
+          if (res.data.upcoming) this.upcomingPoolSig.set(res.data.upcoming);
+        }
+      }
     });
   }
 
-  iplColor(code: string): string {
-    return this.IPL_COLORS[code] ?? "#4a5568";
+  toggleAuction(action: string): void {
+    const lobby = this.lobbySig();
+    if (!lobby) return;
+    this.actionLoadingSig.set(true);
+    this.lobbyService.toggleAuction(lobby.id, action).subscribe({
+      next: () => this.actionLoadingSig.set(false),
+      error: (err: any) => { this.actionLoadingSig.set(false); alert(err.message || "Failed to " + action); }
+    });
+  }
+
+  placeBid(amount: number): void {
+    const lobby = this.lobbySig();
+    if (!lobby) return;
+    this.actionLoadingSig.set(true);
+    this.lobbyService.placeBid(lobby.id, amount).subscribe({
+      next: () => this.actionLoadingSig.set(false),
+      error: (err: any) => { this.actionLoadingSig.set(false); alert(err.message || "Failed to place bid"); }
+    });
+  }
+
+  getIncrement(currentBid: number): number { return currentBid >= 1000 ? 50 : 20; }
+  canAfford(lobby: LobbyDTO | null, userId: string, amount: number): boolean {
+    const p = lobby?.participants.find(x => x.userId === userId);
+    return p ? (amount / 100) <= p.purseRemaining : false;
+  }
+
+  exitAuction(): void { this.router.navigate(["/dashboard"]); }
+  iplColor(code: string): string { return IPL_TEAM_MAP[code]?.color ?? "#4a5568"; }
+  iplInitial(code: string): string { return (code || "T").charAt(0).toUpperCase(); }
+  getParticipantName(lobby: LobbyDTO | null, userId: string): string { return lobby?.participants.find(p => p.userId === userId)?.username || "Unknown"; }
+  getMyPurse(lobby: LobbyDTO | null, currentUserId: string): number { return lobby?.participants.find(p => p.userId === currentUserId)?.purseRemaining || 0; }
+
+  setTab(tab: 'feed' | 'squads'): void {
+    this.activeTabSig.set(tab);
+    if (tab === 'squads') {
+      this.fetchSquads();
+    }
+  }
+
+  countRole(squad: any[], role: string): number {
+    if (!squad) return 0;
+    return squad.filter(p => p.role === role || (role === 'BAT' && p.role === 'BATSMAN') || (role === 'BOWL' && p.role === 'BOWLER')).length;
+  }
+
+  countOverseas(squad: any[]): number {
+    if (!squad) return 0;
+    return squad.filter(p => p.nationality !== 'Indian').length;
+  }
+
+  selectTeam(userId: string): void {
+    this.selectedTeamSig.set(userId);
+  }
+
+  fetchSquads(): void {
+    const lobby = this.lobbySig();
+    if (!lobby) return;
+
+    this.lobbyService.getLobbySquads(lobby.id).subscribe({
+      next: (res) => {
+        this.squadsSig.set(res.data);
+        if (!this.selectedTeamSig() && res.data && res.data.length > 0) {
+          this.selectedTeamSig.set(this.currentUserIdSig() || res.data[0].userID);
+        }
+      }
+    });
   }
 }

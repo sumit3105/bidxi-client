@@ -65,6 +65,32 @@ export class LobbyService {
       .pipe(catchError(this.handleError));
   }
 
+  getAuctionRoom(lobbyId: string): Observable<ApiSuccess<any>> {
+    return this.http
+      .get<ApiSuccess<any>>(`${API_BASE}/lobbies/${lobbyId}/auction`)
+      .pipe(catchError(this.handleError));
+  }
+
+  getLobbySquads(lobbyId: string): Observable<ApiSuccess<any>> {
+    return this.http
+      .get<ApiSuccess<any>>(`${API_BASE}/lobbies/${lobbyId}/squads`)
+      .pipe(catchError(this.handleError));
+  }
+
+  toggleAuction(lobbyId: string, action: string): Observable<ApiSuccess<null>> {
+    return this.http
+      .post<ApiSuccess<null>>(`${API_BASE}/lobbies/${lobbyId}/auction/toggle`, {
+        action,
+      })
+      .pipe(catchError(this.handleError));
+  }
+
+  placeBid(lobbyId: string, amount: number): Observable<ApiSuccess<null>> {
+    return this.http
+      .post<ApiSuccess<null>>(`${API_BASE}/lobbies/${lobbyId}/bid`, { amount })
+      .pipe(catchError(this.handleError));
+  }
+
   private handleError(err: {
     error?: { message?: string; error?: string };
     status?: number;
