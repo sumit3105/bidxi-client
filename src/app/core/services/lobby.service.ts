@@ -13,7 +13,7 @@ const API_BASE = "http://localhost:8080/api";
 
 @Injectable({ providedIn: "root" })
 export class LobbyService {
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   createLobby(req: CreateLobbyRequest): Observable<ApiSuccess<LobbyDTO>> {
     return this.http
@@ -88,6 +88,12 @@ export class LobbyService {
   placeBid(lobbyId: string, amount: number): Observable<ApiSuccess<null>> {
     return this.http
       .post<ApiSuccess<null>>(`${API_BASE}/lobbies/${lobbyId}/bid`, { amount })
+      .pipe(catchError(this.handleError));
+  }
+
+  getAllPlayers(lobbyId: string): Observable<ApiSuccess<any[]>> {
+    return this.http
+      .get<ApiSuccess<any[]>>(`${API_BASE}/lobbies/${lobbyId}/all-players`)
       .pipe(catchError(this.handleError));
   }
 

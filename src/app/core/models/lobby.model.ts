@@ -52,6 +52,7 @@ export interface AuctionRoomDTO {
   timerSeconds: number;
   playerQueue: string[];
   soldPlayers: SoldRecordDTO[];
+  unsoldPlayers?: string[];
   isHostPresent: boolean;
 }
 
