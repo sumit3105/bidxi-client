@@ -1,57 +1,168 @@
-<div class="auth-container">
-  <div class="auth-card-wrapper">
-    <mat-card class="auth-card">
-      <mat-card-header>
-        <mat-card-title>Create an Account</mat-card-title>
-        <mat-card-subtitle>Join BidXI for the ultimate IPL auction</mat-card-subtitle>
-      </mat-card-header>
+<div class="auth-page" id="register-page">
+  <!-- Background orbs -->
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-overlay"></div>
+  </div>
 
-      <mat-card-content>
-        <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
-          <div *ngIf="errorMessage" class="error-banner">
-            {{ errorMessage }}
+  <div class="auth-container">
+    <!-- Left branding panel -->
+    <div class="auth-brand" id="register-brand">
+      <a routerLink="/" class="brand-logo">
+        <span class="logo-icon">🏏</span>
+        <span class="logo-text">Bid<span class="logo-gold">XI</span></span>
+      </a>
+      <h1 class="brand-title">Join the <span class="text-gold">Auction</span><br/>Revolution</h1>
+      <p class="brand-subtitle">
+        Create your free account and start building your dream IPL squad in minutes.
+      </p>
+
+      <div class="brand-features">
+        <div class="bf-item">
+          <span class="bf-icon">⚡</span>
+          <span class="bf-text">Real-time live bidding</span>
+        </div>
+        <div class="bf-item">
+          <span class="bf-icon">🏠</span>
+          <span class="bf-text">Private lobbies with friends</span>
+        </div>
+        <div class="bf-item">
+          <span class="bf-icon">🏆</span>
+          <span class="bf-text">Build your ultimate XI</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="auth-form-panel" id="register-form-panel">
+      <div class="auth-card">
+        <div class="card-header">
+          <h2 class="card-title">Create Account</h2>
+          <p class="card-subtitle">Fill in your details to get started</p>
+        </div>
+
+        <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" id="register-form">
+          <!-- Error banner -->
+          <div *ngIf="errorMessage" class="error-banner" id="register-error">
+            <span class="error-icon">⚠️</span>
+            <span>{{ errorMessage }}</span>
           </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Username</mat-label>
-            <input matInput type="text" formControlName="username" placeholder="Choose a username" required />
-            <mat-error *ngIf="registerForm.get('username')?.hasError('required')">Username is required</mat-error>
-            <mat-error *ngIf="registerForm.get('username')?.hasError('minlength')">Must be at least 3 characters</mat-error>
-          </mat-form-field>
+          <!-- Username field -->
+          <div class="form-group" id="register-username-group">
+            <label class="form-label" for="register-username">Username</label>
+            <div class="input-wrapper" [class.has-error]="registerForm.get('username')?.invalid && registerForm.get('username')?.touched">
+              <span class="input-icon">👤</span>
+              <input
+                id="register-username"
+                type="text"
+                formControlName="username"
+                placeholder="Choose a username"
+                class="form-input"
+                autocomplete="username"
+              />
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('username')?.hasError('required') && registerForm.get('username')?.touched">
+              Username is required
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('username')?.hasError('minlength') && registerForm.get('username')?.touched">
+              Must be at least 3 characters
+            </div>
+          </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email" placeholder="Enter your email" required />
-            <mat-error *ngIf="registerForm.get('email')?.hasError('required')">Email is required</mat-error>
-            <mat-error *ngIf="registerForm.get('email')?.hasError('email')">Please enter a valid email</mat-error>
-          </mat-form-field>
+          <!-- Email field -->
+          <div class="form-group" id="register-email-group">
+            <label class="form-label" for="register-email">Email Address</label>
+            <div class="input-wrapper" [class.has-error]="registerForm.get('email')?.invalid && registerForm.get('email')?.touched">
+              <span class="input-icon">📧</span>
+              <input
+                id="register-email"
+                type="email"
+                formControlName="email"
+                placeholder="you@example.com"
+                class="form-input"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('email')?.hasError('required') && registerForm.get('email')?.touched">
+              Email is required
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('email')?.hasError('email') && registerForm.get('email')?.touched">
+              Please enter a valid email
+            </div>
+          </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Password</mat-label>
-            <input matInput type="password" formControlName="password" placeholder="Create a password" required />
-            <mat-error *ngIf="registerForm.get('password')?.hasError('required')">Password is required</mat-error>
-            <mat-error *ngIf="registerForm.get('password')?.hasError('minlength')">Must be at least 6 characters</mat-error>
-          </mat-form-field>
+          <!-- Password field -->
+          <div class="form-group" id="register-password-group">
+            <label class="form-label" for="register-password">Password</label>
+            <div class="input-wrapper" [class.has-error]="registerForm.get('password')?.invalid && registerForm.get('password')?.touched">
+              <span class="input-icon">🔒</span>
+              <input
+                id="register-password"
+                [type]="showPassword ? 'text' : 'password'"
+                formControlName="password"
+                placeholder="Min 6 characters"
+                class="form-input"
+                autocomplete="new-password"
+              />
+              <button type="button" class="toggle-pw" (click)="togglePassword()">
+                {{ showPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('password')?.hasError('required') && registerForm.get('password')?.touched">
+              Password is required
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('password')?.hasError('minlength') && registerForm.get('password')?.touched">
+              Must be at least 6 characters
+            </div>
+          </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Confirm Password</mat-label>
-            <input matInput type="password" formControlName="confirmPassword" placeholder="Confirm your password" required />
-            <mat-error *ngIf="registerForm.get('confirmPassword')?.hasError('required')">Please confirm your password</mat-error>
-            <mat-error *ngIf="registerForm.hasError('mismatch') && registerForm.get('confirmPassword')?.touched">
+          <!-- Confirm Password field -->
+          <div class="form-group" id="register-confirm-group">
+            <label class="form-label" for="register-confirm">Confirm Password</label>
+            <div class="input-wrapper" [class.has-error]="(registerForm.get('confirmPassword')?.invalid || registerForm.hasError('mismatch')) && registerForm.get('confirmPassword')?.touched">
+              <span class="input-icon">🔐</span>
+              <input
+                id="register-confirm"
+                [type]="showConfirmPassword ? 'text' : 'password'"
+                formControlName="confirmPassword"
+                placeholder="Re-enter password"
+                class="form-input"
+                autocomplete="new-password"
+              />
+              <button type="button" class="toggle-pw" (click)="toggleConfirmPassword()">
+                {{ showConfirmPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <div class="form-error" *ngIf="registerForm.get('confirmPassword')?.hasError('required') && registerForm.get('confirmPassword')?.touched">
+              Please confirm your password
+            </div>
+            <div class="form-error" *ngIf="registerForm.hasError('mismatch') && registerForm.get('confirmPassword')?.touched && !registerForm.get('confirmPassword')?.hasError('required')">
               Passwords do not match
-            </mat-error>
-          </mat-form-field>
+            </div>
+          </div>
 
-          <button mat-flat-button color="primary" type="submit" class="submit-button" [disabled]="registerForm.invalid || isLoading">
-            {{ isLoading ? 'Creating Account...' : 'Register' }}
+          <!-- Submit button -->
+          <button
+            type="submit"
+            class="submit-btn"
+            id="register-submit"
+            [disabled]="registerForm.invalid || isLoading"
+          >
+            <span *ngIf="!isLoading">Create Account</span>
+            <span *ngIf="isLoading" class="btn-loading">
+              <span class="spinner"></span>
+              Creating account...
+            </span>
           </button>
         </form>
-      </mat-card-content>
 
-      <mat-card-actions class="auth-actions">
-        <span>Already have an account?</span>
-        <a routerLink="/login" class="login-link">Login here</a>
-      </mat-card-actions>
-    </mat-card>
+        <div class="auth-footer">
+          <span class="footer-text">Already have an account?</span>
+          <a routerLink="/login" class="footer-link" id="register-login-link">Sign in here →</a>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

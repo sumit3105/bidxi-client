@@ -1,40 +1,114 @@
-<div class="auth-container">
-  <div class="auth-card-wrapper">
-    <mat-card class="auth-card">
-      <mat-card-header>
-        <mat-card-title>Welcome Back</mat-card-title>
-        <mat-card-subtitle>Login to your BidXI account</mat-card-subtitle>
-      </mat-card-header>
+<div class="auth-page" id="login-page">
+  <!-- Background orbs -->
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="grid-overlay"></div>
+  </div>
 
-      <mat-card-content>
-        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
-          <div *ngIf="errorMessage" class="error-banner">
-            {{ errorMessage }}
+  <div class="auth-container">
+    <!-- Left branding panel -->
+    <div class="auth-brand" id="login-brand">
+      <a routerLink="/" class="brand-logo">
+        <span class="logo-icon">🏏</span>
+        <span class="logo-text">Bid<span class="logo-gold">XI</span></span>
+      </a>
+      <h1 class="brand-title">Welcome Back,<br/><span class="text-gold">Champion</span></h1>
+      <p class="brand-subtitle">
+        Your dream squad awaits. Log in and dominate the auction floor.
+      </p>
+      <div class="brand-stats">
+        <div class="brand-stat">
+          <span class="bs-number">2,400+</span>
+          <span class="bs-label">Active Players</span>
+        </div>
+        <div class="brand-stat-divider"></div>
+        <div class="brand-stat">
+          <span class="bs-number">54K+</span>
+          <span class="bs-label">Bids Placed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="auth-form-panel" id="login-form-panel">
+      <div class="auth-card">
+        <div class="card-header">
+          <h2 class="card-title">Sign In</h2>
+          <p class="card-subtitle">Enter your credentials to continue</p>
+        </div>
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form" id="login-form">
+          <!-- Error banner -->
+          <div *ngIf="errorMessage" class="error-banner" id="login-error">
+            <span class="error-icon">⚠️</span>
+            <span>{{ errorMessage }}</span>
           </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email" placeholder="Enter your email" required />
-            <mat-error *ngIf="loginForm.get('email')?.hasError('required')">Email is required</mat-error>
-            <mat-error *ngIf="loginForm.get('email')?.hasError('email')">Please enter a valid email</mat-error>
-          </mat-form-field>
+          <!-- Email field -->
+          <div class="form-group" id="login-email-group">
+            <label class="form-label" for="login-email">Email Address</label>
+            <div class="input-wrapper" [class.has-error]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched">
+              <span class="input-icon">📧</span>
+              <input
+                id="login-email"
+                type="email"
+                formControlName="email"
+                placeholder="you@example.com"
+                class="form-input"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-error" *ngIf="loginForm.get('email')?.hasError('required') && loginForm.get('email')?.touched">
+              Email is required
+            </div>
+            <div class="form-error" *ngIf="loginForm.get('email')?.hasError('email') && loginForm.get('email')?.touched">
+              Please enter a valid email
+            </div>
+          </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Password</mat-label>
-            <input matInput type="password" formControlName="password" placeholder="Enter your password" required />
-            <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
-          </mat-form-field>
+          <!-- Password field -->
+          <div class="form-group" id="login-password-group">
+            <label class="form-label" for="login-password">Password</label>
+            <div class="input-wrapper" [class.has-error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+              <span class="input-icon">🔒</span>
+              <input
+                id="login-password"
+                [type]="showPassword ? 'text' : 'password'"
+                formControlName="password"
+                placeholder="Enter your password"
+                class="form-input"
+                autocomplete="current-password"
+              />
+              <button type="button" class="toggle-pw" (click)="togglePassword()">
+                {{ showPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <div class="form-error" *ngIf="loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched">
+              Password is required
+            </div>
+          </div>
 
-          <button mat-flat-button color="primary" type="submit" class="submit-button" [disabled]="loginForm.invalid || isLoading">
-            {{ isLoading ? 'Logging in...' : 'Login' }}
+          <!-- Submit button -->
+          <button
+            type="submit"
+            class="submit-btn"
+            id="login-submit"
+            [disabled]="loginForm.invalid || isLoading"
+          >
+            <span *ngIf="!isLoading">Sign In</span>
+            <span *ngIf="isLoading" class="btn-loading">
+              <span class="spinner"></span>
+              Signing in...
+            </span>
           </button>
         </form>
-      </mat-card-content>
 
-      <mat-card-actions class="auth-actions">
-        <span>Don't have an account?</span>
-        <a routerLink="/register" class="register-link">Register here</a>
-      </mat-card-actions>
-    </mat-card>
+        <div class="auth-footer">
+          <span class="footer-text">Don't have an account?</span>
+          <a routerLink="/register" class="footer-link" id="login-register-link">Create one here →</a>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

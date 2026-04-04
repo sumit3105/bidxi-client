@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed } from "@angular/core";
+import { Component, OnInit, OnDestroy, signal, computed, effect } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ActivatedRoute, Router } from "@angular/router";
 import { LobbyService } from "../../core/services/lobby.service";
@@ -155,12 +155,76 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
               </button>
             </div>
 
-            <div class="completed-state" *ngIf="vm.auction!.status === 'completed'" style="text-align: center; margin-top: 50px; background: rgba(0,0,0,0.5); padding: 30px; border-radius: 12px; border: 1px solid #ffd700;">
-              <h2 style="color: #ffd700; margin-bottom: 10px; font-size: 2rem;">🏆 AUCTION COMPLETED 🏆</h2>
-              <p style="color: #fff; margin-bottom: 20px;">All players have been auctioned!</p>
-              <button class="big-action-btn next animate-in" *ngIf="vm.isAdmin && (vm.auction!.unsoldPlayers || []).length > 0" (click)="toggleAuction('retry_unsold')" style="font-size: 1rem; padding: 1rem;">
-                RETRY {{ (vm.auction!.unsoldPlayers || []).length }} UNSOLD PLAYERS
-              </button>
+            <div class="completed-state" *ngIf="vm.auction!.status === 'completed' && !vm.finalStatsVisible">
+              <div class="completed-trophy">🏆</div>
+              <h2 class="completed-title">AUCTION COMPLETED</h2>
+              <p class="completed-sub">All players have been auctioned!</p>
+
+              <!-- Retry unsold with countdown -->
+              <div class="retry-section" *ngIf="(vm.auction!.unsoldPlayers || []).length > 0">
+                <div class="retry-countdown">
+                  <svg class="countdown-ring" viewBox="0 0 120 120">
+                    <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+                    <circle class="ring-progress" cx="60" cy="60" r="52" [style.stroke-dashoffset]="327 - (vm.retryCountdown * 10.9)"></circle>
+                  </svg>
+                  <span class="countdown-number">{{ vm.retryCountdown }}s</span>
+                </div>
+                <p class="retry-hint">Auto-completing in {{ vm.retryCountdown }}s</p>
+                <button class="big-action-btn next animate-in" *ngIf="vm.isAdmin" (click)="retryUnsold()" [disabled]="vm.actionLoading" style="font-size: 1rem; padding: 1rem;">
+                  🔄 RETRY {{ (vm.auction!.unsoldPlayers || []).length }} UNSOLD PLAYERS
+                </button>
+                <p class="retry-sub" *ngIf="!vm.isAdmin">Waiting for host to retry unsold players...</p>
+              </div>
+
+              <!-- No unsold — show stats button -->
+              <div class="stats-prompt" *ngIf="(vm.auction!.unsoldPlayers || []).length === 0">
+                <button class="big-action-btn start animate-in" (click)="showFinalStats()" style="font-size: 1rem; padding: 1rem;">
+                  📊 VIEW AUCTION STATS
+                </button>
+              </div>
+            </div>
+
+            <!-- Final Stats Overlay (inline in center stage) -->
+            <div class="final-stats-state" *ngIf="vm.finalStatsVisible">
+              <div class="fs-header">
+                <h2 class="fs-title">🏆 AUCTION SUMMARY 🏆</h2>
+                <p class="fs-subtitle">Final results for {{ vm.lobby?.name }}</p>
+              </div>
+
+              <div class="fs-overview">
+                <div class="fs-stat-card">
+                  <span class="fs-stat-num">{{ (vm.auction!.soldPlayers || []).length }}</span>
+                  <span class="fs-stat-label">PLAYERS SOLD</span>
+                </div>
+                <div class="fs-stat-card unsold-card">
+                  <span class="fs-stat-num">{{ (vm.auction!.unsoldPlayers || []).length }}</span>
+                  <span class="fs-stat-label">UNSOLD</span>
+                </div>
+                <div class="fs-stat-card">
+                  <span class="fs-stat-num">{{ getTotalSpent() }}L</span>
+                  <span class="fs-stat-label">TOTAL SPENT</span>
+                </div>
+              </div>
+
+              <div class="fs-teams-grid">
+                <div *ngFor="let team of vm.squads" class="fs-team-card" [style.border-top-color]="iplColor(team.iplTeam)">
+                  <div class="fs-team-header">
+                    <span class="fs-team-name" [style.color]="iplColor(team.iplTeam)">{{ team.iplTeam }}</span>
+                    <span class="fs-team-owner">{{ team.teamName }}</span>
+                  </div>
+                  <div class="fs-team-stats">
+                    <span>Players: <strong>{{ team.squad?.length || 0 }}</strong></span>
+                    <span>Purse Left: <strong>₹{{ team.purseRemaining | number:'1.2-2' }} Cr</strong></span>
+                  </div>
+                  <div class="fs-team-top-buy" *ngIf="getTopBuy(team)">
+                    <span class="fs-top-label">Top Buy:</span>
+                    <span class="fs-top-name">{{ getTopBuy(team).name }}</span>
+                    <span class="fs-top-price">₹{{ getTopBuy(team).soldPrice }}L</span>
+                  </div>
+                </div>
+              </div>
+
+              <button class="exit-stats-btn" (click)="exitAuction()">EXIT ROOM</button>
             </div>
             
             <div class="paused-state" *ngIf="vm.auction!.status === 'paused'">
@@ -341,6 +405,9 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
   private onlineUsersSig = signal<string[]>([]);
   private fullPoolSig = signal<PlayerDTO[]>([]);
   private isPoolVisibleSig = signal<boolean>(false);
+  private retryCountdownSig = signal<number>(30);
+  private finalStatsVisibleSig = signal<boolean>(false);
+  private retryTimerRef: ReturnType<typeof setInterval> | null = null;
 
   vm = computed(() => {
     const l = this.lobbySig();
@@ -362,7 +429,9 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
       fullPool: this.fullPoolSig() || [],
       isPoolVisible: this.isPoolVisibleSig(),
       isAdmin: l?.adminId === cUserId,
-      currentPoolName: up[0]?.category || 'DRAFT'
+      currentPoolName: up[0]?.category || 'DRAFT',
+      retryCountdown: this.retryCountdownSig(),
+      finalStatsVisible: this.finalStatsVisibleSig()
     };
   });
 
@@ -444,6 +513,7 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     if (this.ws) { this.ws.close(); }
+    this.clearRetryTimer();
   }
 
   connectWebSocket(id: string): void {
@@ -491,6 +561,8 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
             break;
           case "AUCTION_COMPLETED":
             this.auctionSig.set(data.payload);
+            this.finalStatsVisibleSig.set(false);
+            this.startRetryCountdown();
             break;
           case "ONLINE_USERS":
             this.onlineUsersSig.set(data.payload);
@@ -521,7 +593,7 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     if (!lobby) return;
     this.actionLoadingSig.set(true);
     this.lobbyService.toggleAuction(lobby.id, action).subscribe({
-      next: () => this.actionLoadingSig.set(false),
+      next: () => { this.actionLoadingSig.set(false); if (action === 'retry_unsold') { this.clearRetryTimer(); } },
       error: (err: any) => { this.actionLoadingSig.set(false); alert(err.message || "Failed to " + action); }
     });
   }
@@ -612,5 +684,57 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  // ── Retry Unsold Countdown ──
+  startRetryCountdown(): void {
+    this.clearRetryTimer();
+    const auction = this.auctionSig();
+    if (!auction || (auction.unsoldPlayers || []).length === 0) {
+      // No unsold players, go straight to stats
+      this.finalStatsVisibleSig.set(true);
+      return;
+    }
+
+    this.retryCountdownSig.set(30);
+    this.retryTimerRef = setInterval(() => {
+      const current = this.retryCountdownSig();
+      if (current <= 1) {
+        this.clearRetryTimer();
+        this.retryCountdownSig.set(0);
+        this.showFinalStats();
+      } else {
+        this.retryCountdownSig.set(current - 1);
+      }
+    }, 1000);
+  }
+
+  clearRetryTimer(): void {
+    if (this.retryTimerRef) {
+      clearInterval(this.retryTimerRef);
+      this.retryTimerRef = null;
+    }
+  }
+
+  retryUnsold(): void {
+    this.clearRetryTimer();
+    this.toggleAuction('retry_unsold');
+  }
+
+  showFinalStats(): void {
+    this.clearRetryTimer();
+    this.finalStatsVisibleSig.set(true);
+    this.fetchSquads();
+  }
+
+  getTotalSpent(): number {
+    const auction = this.auctionSig();
+    if (!auction?.soldPlayers) return 0;
+    return auction.soldPlayers.reduce((sum: number, s: SoldRecordDTO) => sum + s.soldPrice, 0);
+  }
+
+  getTopBuy(team: any): any {
+    if (!team.squad || team.squad.length === 0) return null;
+    return team.squad.reduce((max: any, p: any) => (p.soldPrice > (max?.soldPrice || 0) ? p : max), null);
   }
 }

@@ -9,24 +9,12 @@ import {
   ValidationErrors,
 } from "@angular/forms";
 import { Router, RouterModule } from "@angular/router";
-import { MatCardModule } from "@angular/material/card";
-import { MatFormFieldModule } from "@angular/material/form-field";
-import { MatInputModule } from "@angular/material/input";
-import { MatButtonModule } from "@angular/material/button";
 import { AuthService } from "../../../core/services/auth.service";
 
 @Component({
   selector: "app-register",
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    RouterModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-  ],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
   templateUrl: "./register.component.html",
   styleUrl: "./register.component.css",
 })
@@ -34,6 +22,8 @@ export class RegisterComponent {
   registerForm: FormGroup;
   errorMessage: string | null = null;
   isLoading = false;
+  showPassword = false;
+  showConfirmPassword = false;
 
   constructor(
     private fb: FormBuilder,
@@ -57,6 +47,14 @@ export class RegisterComponent {
     return password === confirmPassword ? null : { mismatch: true };
   }
 
+  togglePassword(): void {
+    this.showPassword = !this.showPassword;
+  }
+
+  toggleConfirmPassword(): void {
+    this.showConfirmPassword = !this.showConfirmPassword;
+  }
+
   onSubmit(): void {
     if (this.registerForm.invalid) {
       return;
@@ -66,11 +64,9 @@ export class RegisterComponent {
     this.errorMessage = null;
 
     const { confirmPassword, ...registerData } = this.registerForm.value;
-    console.log("Registering with data:", registerData);
     this.authService.register(registerData).subscribe({
       next: () => {
         this.isLoading = false;
-        // On success, redirect to login
         this.router.navigate(["/login"]);
       },
       error: (err) => {

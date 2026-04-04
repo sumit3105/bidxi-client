@@ -1,27 +1,231 @@
-<div class="hero-container">
-  <div class="hero-content">
-    <div class="hero-text">
-      <h1>BidXI</h1>
-      <p class="tagline">"Bid Smart. Build Legends. Win Big."</p>
-      <p class="description">
-        Experience the most authentic, real-time multiplayer fantasy IPL auction game. Join a private lobby, assemble your dream squad, and compete in live bidding wars.
+<!-- ============ NAVBAR ============ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a routerLink="/" class="nav-logo" id="nav-logo">
+      <span class="logo-icon">🏏</span>
+      <span class="logo-text">Bid<span class="logo-highlight">XI</span></span>
+    </a>
+    <div class="nav-links">
+      <a routerLink="/login" class="nav-link" id="nav-login">Login</a>
+      <a routerLink="/register" class="btn btn-primary btn-nav" id="nav-register">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO SECTION ============ -->
+<section class="hero" id="hero-section">
+  <!-- Animated background particles -->
+  <div class="hero-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <div class="hero-inner">
+    <div class="hero-text" id="hero-text">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>Season 2026 is LIVE</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span class="title-line">Bid Smart.</span>
+        <span class="title-line title-gold">Build Legends.</span>
+        <span class="title-line">Win Big.</span>
+      </h1>
+
+      <p class="hero-description">
+        The most authentic real-time multiplayer fantasy IPL auction game.
+        Create private lobbies, compete in live bidding wars, and build
+        your dream squad — all in real-time.
       </p>
-      
-      <div class="cta-group">
-        <a mat-flat-button routerLink="/register" class="cta-primary">Get Started</a>
-        <a mat-stroked-button routerLink="/login" class="cta-secondary">Login</a>
+
+      <div class="hero-cta" id="hero-cta">
+        <a routerLink="/register" class="btn btn-primary btn-hero" id="cta-register">
+          <span>Start Bidding</span>
+          <span class="btn-arrow">→</span>
+        </a>
+        <a routerLink="/login" class="btn btn-outline btn-hero" id="cta-login">
+          Login to Lobby
+        </a>
+      </div>
+
+      <!-- Live stats ticker -->
+      <div class="stats-ticker" id="stats-ticker">
+        <div class="stat-item">
+          <span class="stat-number" id="stat-players">2,400+</span>
+          <span class="stat-label">Active Players</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="stat-auctions">180+</span>
+          <span class="stat-label">Auctions Today</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="stat-bids">54K+</span>
+          <span class="stat-label">Bids Placed</span>
+        </div>
       </div>
     </div>
-    
-    <div class="hero-visual">
-      <!-- Abstract visual or shapes for aesthetic -- no actual image since we don't have one -->
-      <div class="circle circle-1">
-      <div class="circle circle-2"></div>
-      <div class="glass-card">
-        <h3>Live Action</h3>
-        <p>10-second Real-Time Bidding Engine</p>
-        <div class="pulse"></div>
+
+    <div class="hero-visual" id="hero-visual">
+      <div class="visual-wrapper">
+        <img src="assets/hero-cricket.png" alt="BidXI Cricket Auction" class="hero-image" />
+        <!-- Floating auction cards -->
+        <div class="float-card float-card-1" id="float-card-1">
+          <div class="float-card-icon">🔥</div>
+          <div class="float-card-text">
+            <span class="float-card-title">Virat Kohli</span>
+            <span class="float-card-bid">₹16.5 Cr</span>
+          </div>
+        </div>
+        <div class="float-card float-card-2" id="float-card-2">
+          <div class="float-card-icon">⚡</div>
+          <div class="float-card-text">
+            <span class="float-card-title">Jasprit Bumrah</span>
+            <span class="float-card-bid">₹18 Cr</span>
+          </div>
+        </div>
+        <div class="float-card float-card-3" id="float-card-3">
+          <div class="float-card-icon">🎯</div>
+          <div class="float-card-text">
+            <span class="float-card-title">SOLD!</span>
+            <span class="float-card-bid live">LIVE</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
+</section>
+
+<!-- ============ FEATURES SECTION ============ -->
+<section class="features" id="features-section">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="section-tag">Why BidXI?</span>
+      <h2 class="section-title">Built for the <span class="text-gold">Thrill</span> of Auction</h2>
+      <p class="section-subtitle">Every feature designed to deliver an adrenaline-pumping, authentic IPL auction experience.</p>
+    </div>
+
+    <div class="features-grid" id="features-grid">
+      <div class="feature-card" id="feature-realtime">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">⚡</span>
+        </div>
+        <h3>Real-Time Bidding</h3>
+        <p>WebSocket-powered live auctions with 10-second bid timers. Feel the pressure of every second ticking away.</p>
+      </div>
+
+      <div class="feature-card" id="feature-lobby">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">🏠</span>
+        </div>
+        <h3>Private Lobbies</h3>
+        <p>Create invite-only lobbies with custom purse sizes, team limits, and player pools. Your game, your rules.</p>
+      </div>
+
+      <div class="feature-card" id="feature-squad">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">🏏</span>
+        </div>
+        <h3>Smart Squad Builder</h3>
+        <p>Track your budget, monitor squad composition, and make strategic decisions to build the ultimate XI.</p>
+      </div>
+
+      <div class="feature-card" id="feature-multiplayer">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">👥</span>
+        </div>
+        <h3>Multiplayer Action</h3>
+        <p>Compete with friends in real-time. Watch each other's bids, strategies, and reactions as they happen live.</p>
+      </div>
+
+      <div class="feature-card" id="feature-analytics">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">📊</span>
+        </div>
+        <h3>Live Analytics</h3>
+        <p>Real-time auction insights, player stats, spending trackers, and post-auction analysis for every session.</p>
+      </div>
+
+      <div class="feature-card" id="feature-secure">
+        <div class="feature-icon-wrap">
+          <span class="feature-icon">🔒</span>
+        </div>
+        <h3>Secure & Fair</h3>
+        <p>JWT-authenticated sessions, synchronized state management, and anti-cheat protections for every bid.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="how-it-works" id="how-it-works-section">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="section-tag">Get Started</span>
+      <h2 class="section-title">Three Steps to Your <span class="text-gold">Dream Squad</span></h2>
+    </div>
+
+    <div class="steps-container" id="steps-container">
+      <div class="step" id="step-1">
+        <div class="step-number">01</div>
+        <div class="step-content">
+          <h3>Create or Join a Lobby</h3>
+          <p>Sign up, create a private lobby or join one with an invite code. Customize purse size and player pool settings.</p>
+        </div>
+        <div class="step-connector"></div>
+      </div>
+
+      <div class="step" id="step-2">
+        <div class="step-number">02</div>
+        <div class="step-content">
+          <h3>Bid in Real-Time</h3>
+          <p>When the host starts the auction, players go up for bidding one by one. Place your bids before the 10-second timer runs out!</p>
+        </div>
+        <div class="step-connector"></div>
+      </div>
+
+      <div class="step" id="step-3">
+        <div class="step-number">03</div>
+        <div class="step-content">
+          <h3>Build & Win</h3>
+          <p>Strategically assemble your playing XI within your budget. The best squad wins bragging rights and leaderboard glory.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA BANNER ============ -->
+<section class="cta-banner" id="cta-banner-section">
+  <div class="cta-banner-inner">
+    <div class="cta-banner-orb"></div>
+    <h2>Ready to Build Your <span class="text-gold">Dream Team</span>?</h2>
+    <p>Join thousands of cricket fans battling it out in live auctions. It's free to play!</p>
+    <a routerLink="/register" class="btn btn-primary btn-lg" id="cta-final-register">
+      <span>Create Free Account</span>
+      <span class="btn-arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer" id="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-icon">🏏</span>
+      <span class="logo-text">Bid<span class="logo-highlight">XI</span></span>
+      <p class="footer-tagline">Bid Smart. Build Legends. Win Big.</p>
+    </div>
+    <div class="footer-links">
+      <a routerLink="/register">Register</a>
+      <a routerLink="/login">Login</a>
+    </div>
+    <div class="footer-copy">
+      <p>© 2026 BidXI. All rights reserved. Built with ❤️ for cricket fans.</p>
+    </div>
+  </div>
+</footer>
