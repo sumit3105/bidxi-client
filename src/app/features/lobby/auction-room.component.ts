@@ -135,7 +135,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
               <div class="p-category">{{ vm.currentPlayer.category }}</div>
               <div class="p-role-badge">{{ vm.currentPlayer.role }}</div>
               
-              <img [src]="vm.currentPlayer.imageUrl" class="p-img" onerror="this.src='https://documents.iplt20.com/ipl/IPLHeadshot2024/missing.png'">
+              <img [src]="vm.currentPlayer.imageUrl" class="p-img" (error)="onImgError($event)">
               
               <div class="p-base">BASE PRICE: ₹{{ vm.currentPlayer.basePrice }}L</div>
               <div class="p-info">
@@ -257,19 +257,19 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
             </div>
 
             <div class="bid-info">
-              <span class="label">CURRENT BID</span>
+              <span class="label">{{ hasHighestBidder(vm.auction!) ? 'CURRENT BID' : 'BASE PRICE' }}</span>
               <div class="value">₹{{ vm.auction!.currentBid }} <small>Lakhs</small></div>
-              <div class="leader" *ngIf="vm.auction!.highestBidderId">
+              <div class="leader" *ngIf="hasHighestBidder(vm.auction!)">
                  <span class="dot"></span> Leading: {{ getParticipantName(vm.lobby!, vm.auction!.highestBidderId) }}
               </div>
-              <div class="leader none" *ngIf="!vm.auction!.highestBidderId">No bids yet</div>
+              <div class="leader none" *ngIf="!hasHighestBidder(vm.auction!)">Nobody has bid yet</div>
             </div>
 
             <div class="bid-actions" *ngIf="vm.auction!.status === 'bidding'">
               <div class="bid-tips">MY PURSE: ₹{{ getMyPurse(vm.lobby!, vm.currentUserId) }} Cr</div>
-              <div class="action-row" *ngIf="vm.auction!.highestBidderId; else openingBid">
+              <div class="action-row" *ngIf="hasHighestBidder(vm.auction!); else openingBid">
                 <button class="bid-btn" (click)="placeBid(vm.auction!.currentBid + getIncrement(vm.auction!.currentBid))" 
-                  [disabled]="vm.actionLoading || vm.auction!.highestBidderId === vm.currentUserId || !canAfford(vm.lobby!, vm.currentUserId, vm.auction!.currentBid + getIncrement(vm.auction!.currentBid))">
+                  [disabled]="vm.actionLoading || isCurrentHighestBidder(vm.auction!, vm.currentUserId) || !canAfford(vm.lobby!, vm.currentUserId, vm.auction!.currentBid + getIncrement(vm.auction!.currentBid))">
                   +{{ getIncrement(vm.auction!.currentBid) }}L
                 </button>
               </div>
@@ -277,7 +277,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
                 <div class="action-row">
                   <button class="bid-btn" (click)="placeBid(vm.auction!.currentBid)" 
                     [disabled]="vm.actionLoading || !canAfford(vm.lobby!, vm.currentUserId, vm.auction!.currentBid)">
-                    BID ₹{{ vm.auction!.currentBid }}L
+                    OPEN AT ₹{{ vm.auction!.currentBid }}L
                   </button>
                 </div>
               </ng-template>
@@ -332,7 +332,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
                   <div class="squad-grid-v2">
                     <div *ngFor="let p of getPlayersByRole(team.squad, group)" class="p-card-mini" [style.border-bottom-color]="iplColor(team.iplTeam)">
                       <div class="pcm-left">
-                        <img [src]="p.imageUrl" class="pcm-img" onerror="this.src='https://documents.iplt20.com/ipl/IPLHeadshot2024/missing.png'">
+                        <img [src]="p.imageUrl" class="pcm-img" (error)="onImgError($event)">
                         <span class="ovs-badge" *ngIf="p.nationality !== 'Indian'">✈️</span>
                       </div>
                       <div class="pcm-right">
@@ -371,7 +371,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
                        [class.is-sold]="isPlayerSold(p.id)"
                        [class.is-unsold]="isPlayerUnsold(p.id)"
                        [class.is-current]="p.id === vm.currentPlayer?.id">
-                        <img [src]="p.imageUrl" class="pe-img" onerror="this.src='https://documents.iplt20.com/ipl/IPLHeadshot2024/missing.png'">
+                        <img [src]="p.imageUrl" class="pe-img" (error)="onImgError($event)">
                         <div class="pe-info">
                            <div class="pe-name-row">
                              <div class="pe-name">{{ p.name }}</div>
@@ -736,5 +736,32 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
   getTopBuy(team: any): any {
     if (!team.squad || team.squad.length === 0) return null;
     return team.squad.reduce((max: any, p: any) => (p.soldPrice > (max?.soldPrice || 0) ? p : max), null);
+  }
+
+  // ── Bidder Helpers ──
+  private readonly ZERO_ID = '000000000000000000000000';
+
+  hasHighestBidder(auction: AuctionRoomDTO): boolean {
+    return !!auction.highestBidderId && auction.highestBidderId !== this.ZERO_ID;
+  }
+
+  isCurrentHighestBidder(auction: AuctionRoomDTO, userId: string): boolean {
+    return this.hasHighestBidder(auction) && auction.highestBidderId === userId;
+  }
+
+  // ── Image Fallback ──
+  onImgError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (img && !img.dataset['fallback']) {
+      img.dataset['fallback'] = '1';
+      img.src = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 260" fill="none">
+        <rect width="200" height="260" rx="16" fill="#152449"/>
+        <circle cx="100" cy="100" r="45" fill="#1e3260" stroke="#2a4a80" stroke-width="2"/>
+        <path d="M100 85 a15 15 0 1 0 .001 0z" fill="#3a6ab0"/>
+        <path d="M72 130 a28 20 0 0 1 56 0" fill="#3a6ab0"/>
+        <text x="100" y="190" text-anchor="middle" fill="#4a6a90" font-family="sans-serif" font-size="12" font-weight="bold">PLAYER</text>
+        <text x="100" y="210" text-anchor="middle" fill="#3a5a80" font-family="sans-serif" font-size="10">IMAGE N/A</text>
+      </svg>`);
+    }
   }
 }
