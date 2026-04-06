@@ -45,7 +45,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
       <main class="ar-main" *ngIf="vm.lobby && vm.auction">
 
         <!-- ═══ Left Sidebar: Live Feed ═══ -->
-        <aside class="sidebar sidebar-left">
+        <aside class="sidebar sidebar-left" [class.mobile-active]="vm.activeTab === 'feed'">
           
           <!-- 💰 Teams & Budget Section -->
           <section class="sb-section budget-section">
@@ -64,7 +64,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
                 </div>
                 <div class="team-purse">
                   <span class="purse-label">PURSE</span>
-                  <span class="purse-val">₹{{ p.purseRemaining | number:'1.2-2' }} Cr</span>
+                  <span class="purse-val">₹{{ formatPurse(p.purseRemaining) }} Cr</span>
                 </div>
               </div>
             </div>
@@ -117,7 +117,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
         </aside>
 
         <!-- ═══ Center Stage ═══ -->
-        <section class="center-stage">
+        <section class="center-stage" [class.mobile-active]="vm.activeTab === 'auction'">
           
           <!-- Admin Controls HUD -->
           <div class="admin-hud" *ngIf="vm.isAdmin && vm.auction!.status !== 'idle' && vm.auction!.status !== 'paused'">
@@ -144,8 +144,11 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
               </div>
             </div>
 
-            <div class="overlay sold" *ngIf="vm.auction!.status === 'sold'">SOLD!</div>
-            <div class="overlay unsold" *ngIf="vm.auction!.status === 'unsold'">UNSOLD</div>
+            <div class="overlay sold animate-pop" *ngIf="vm.auction!.status === 'sold'">
+              <div class="sold-main">SOLD</div>
+              <div class="sold-sub" *ngIf="vm.auction!.highestBidderId">TO {{ getParticipantName(vm.lobby, vm.auction!.highestBidderId) }}</div>
+            </div>
+            <div class="overlay unsold animate-pop" *ngIf="vm.auction!.status === 'unsold'">UNSOLD</div>
             
             <div class="idle-state" *ngIf="vm.auction!.status === 'idle'">
               <div class="spinner" *ngIf="!vm.isAdmin"></div>
@@ -188,7 +191,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
             <div class="final-stats-state" *ngIf="vm.finalStatsVisible">
               <div class="fs-header">
                 <h2 class="fs-title">🏆 AUCTION SUMMARY 🏆</h2>
-                <p class="fs-subtitle">Final results for {{ vm.lobby?.name }}</p>
+                <p class="fs-subtitle">Final results for {{ vm.lobby.name }}</p>
               </div>
 
               <div class="fs-overview">
@@ -214,7 +217,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
                   </div>
                   <div class="fs-team-stats">
                     <span>Players: <strong>{{ team.squad?.length || 0 }}</strong></span>
-                    <span>Purse Left: <strong>₹{{ team.purseRemaining | number:'1.2-2' }} Cr</strong></span>
+                    <span>Purse Left: <strong>₹{{ formatPurse(team.purseRemaining) }} Cr</strong></span>
                   </div>
                   <div class="fs-team-top-buy" *ngIf="getTopBuy(team)">
                     <span class="fs-top-label">Top Buy:</span>
@@ -266,7 +269,7 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
             </div>
 
             <div class="bid-actions" *ngIf="vm.auction!.status === 'bidding'">
-              <div class="bid-tips">MY PURSE: ₹{{ getMyPurse(vm.lobby!, vm.currentUserId) }} Cr</div>
+              <div class="bid-tips">MY PURSE: ₹{{ formatPurse(getMyPurse(vm.lobby!, vm.currentUserId)) }} Cr</div>
               <div class="action-row" *ngIf="hasHighestBidder(vm.auction!); else openingBid">
                 <button class="bid-btn" (click)="placeBid(vm.auction!.currentBid + getIncrement(vm.auction!.currentBid))" 
                   [disabled]="vm.actionLoading || isCurrentHighestBidder(vm.auction!, vm.currentUserId) || !canAfford(vm.lobby!, vm.currentUserId, vm.auction!.currentBid + getIncrement(vm.auction!.currentBid))">
@@ -286,72 +289,55 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
         </section>
 
         <!-- ═══ Right Sidebar: Squad Explorer ═══ -->
-        <aside class="sidebar squad-sidebar">
+        <aside class="sidebar squad-sidebar" [class.mobile-active]="vm.activeTab === 'squads'">
           <div class="sb-header">
             <h4 class="section-title">SQUAD EXPLORER</h4>
           </div>
           
-          <div class="squad-tabs-v2">
-            <button *ngFor="let t of vm.squads" class="franchise-tab" 
-              [class.active]="vm.selectedTeam === t.userId"
-              [style.background]="vm.selectedTeam === t.userId ? iplColor(t.iplTeam) : 'rgba(255,255,255,0.03)'"
-              (click)="selectTeam(t.userId)">
-              {{ t.iplTeam }}
-            </button>
+          <div class="squad-list-v3">
+            <div *ngFor="let team of vm.squads" class="team-card-v3" 
+              [style.border-left-color]="iplColor(team.iplTeam)"
+              (click)="openSquadModal(team.userId)">
+              <div class="tc-main">
+                <div class="tc-info">
+                  <div class="tc-name">{{ team.teamName }}</div>
+                  <div class="tc-owner" [style.color]="iplColor(team.iplTeam)">{{ team.iplTeam }}</div>
+                </div>
+                <div class="tc-count">
+                  <span class="val">{{ team.squad?.length || 0 }}</span>
+                  <span class="lbl">PLAYERS</span>
+                </div>
+              </div>
+              <div class="tc-footer">
+                <div class="tc-purse">₹{{ formatPurse(team.purseRemaining) }} Cr</div>
+                <div class="tc-action">VIEW SQUAD →</div>
+              </div>
+            </div>
           </div>
 
-          <div class="squad-body-v2" *ngFor="let team of vm.squads" [hidden]="vm.selectedTeam !== team.userId">
-            <div class="team-profile-header" [style.border-left-color]="iplColor(team.iplTeam)">
-               <h3 class="tp-name">{{ team.teamName }}</h3>
-               <p class="tp-purse">WALLETT: <span class="val">₹{{ team.purseRemaining | number:'1.2-2' }} Cr</span></p>
-               <div class="tp-stats-grid">
-                  <div class="tp-stat">
-                    <span>PLAYERS</span>
-                    <strong>{{ team.squad?.length || 0 }}/25</strong>
-                  </div>
-                  <div class="tp-stat">
-                    <span>OVS</span>
-                    <strong>{{ countOverseas(team.squad) }}/8</strong>
-                  </div>
-               </div>
-            </div>
-
-            <div class="squad-limits-row">
-               <div class="limit-chip" [class.complete]="countRole(team.squad, 'WK') >= 1">WK: {{ countRole(team.squad, 'WK') }}/1</div>
-               <div class="limit-chip" [class.complete]="countRole(team.squad, 'BAT') >= 5">BAT: {{ countRole(team.squad, 'BAT') }}/5</div>
-               <div class="limit-chip" [class.complete]="countRole(team.squad, 'BOWL') >= 5">BOWL: {{ countRole(team.squad, 'BOWL') }}/5</div>
-            </div>
-
-            <div class="squad-scroll-v2" *ngIf="team.squad?.length; else emptySquad">
-              <ng-container *ngFor="let group of ['WK', 'BAT', 'BOWL', 'ALL']">
-                <div class="role-group-v2" *ngIf="getPlayersByRole(team.squad, group).length">
-                  <h5 class="role-title">
-                    <span class="role-marker" [style.background]="iplColor(team.iplTeam)"></span>
-                    {{ group === 'WK' ? 'WICKETKEEPERS' : group === 'BAT' ? 'BATSMEN' : group === 'BOWL' ? 'BOWLERS' : 'ALL-ROUNDERS' }}
-                  </h5>
-                  <div class="squad-grid-v2">
-                    <div *ngFor="let p of getPlayersByRole(team.squad, group)" class="p-card-mini" [style.border-bottom-color]="iplColor(team.iplTeam)">
-                      <div class="pcm-left">
-                        <img [src]="p.imageUrl" class="pcm-img" (error)="onImgError($event)">
-                        <span class="ovs-badge" *ngIf="p.nationality !== 'Indian'">✈️</span>
-                      </div>
-                      <div class="pcm-right">
-                        <div class="pcm-name">{{ p.name }}</div>
-                        <div class="pcm-bid">SOLD AT: <strong>₹{{ p.soldPrice }}L</strong></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </ng-container>
-            </div>
-            <ng-template #emptySquad>
-              <div class="tp-empty-state">
-                 <span class="icon">🔍</span>
-                 <p>No players picked for this franchise yet.</p>
-              </div>
-            </ng-template>
+          <div *ngIf="vm.squads.length === 0" class="tp-empty-state">
+             <span class="icon">⌛</span>
+             <p>Loading franchises...</p>
           </div>
         </aside>
+
+        <!-- ══ Mobile Navigation Bar ══ -->
+        <nav class="mobile-nav">
+          <button class="nav-item" [class.active]="vm.activeTab === 'feed'" (click)="setTab('feed')">
+            <span class="icon">📊</span>
+            <span class="label">LIVE FEED</span>
+          </button>
+          <button class="nav-item hammer" [class.active]="vm.activeTab === 'auction'" (click)="setTab('auction')">
+            <div class="hammer-circle">
+               <span class="icon">🔨</span>
+            </div>
+            <span class="label">AUCTION</span>
+          </button>
+          <button class="nav-item" [class.active]="vm.activeTab === 'squads'" (click)="setTab('squads')">
+            <span class="icon">🏢</span>
+            <span class="label">SQUADS</span>
+          </button>
+        </nav>
 
       </main>
 
@@ -387,6 +373,67 @@ const IPL_TEAM_MAP: Record<string, { color: string; label: string }> = {
             </div>
          </div>
       </div>
+
+      <!-- ══ Detailed Squad Modal Overlay ══ -->
+      <div class="squad-modal-overlay" *ngIf="vm.isSquadModalVisible" (click)="closeSquadModal()">
+         <div class="squad-modal-content animate-in" (click)="$event.stopPropagation()">
+            <div class="sm-header" [style.border-bottom-color]="iplColor(vm.modalTeam?.iplTeam || '')">
+               <div class="sm-team-info">
+                  <div class="sm-team-badge" [style.background]="iplColor(vm.modalTeam?.iplTeam || '')">{{ vm.modalTeam?.iplTeam }}</div>
+                  <div class="sm-team-names">
+                     <h2>{{ vm.modalTeam?.teamName }}</h2>
+                     <p>{{ vm.modalTeam?.username }}'s Franchise</p>
+                  </div>
+               </div>
+               <div class="sm-stats">
+                  <div class="sm-stat">
+                    <span class="lbl">PURSE LEFT</span>
+                    <span class="val">₹{{ formatPurse(vm.modalTeam?.purseRemaining) }} Cr</span>
+                  </div>
+                  <div class="sm-stat">
+                    <span class="lbl">PLAYERS</span>
+                    <span class="val">{{ vm.modalTeam?.squad?.length || 0 }}/25</span>
+                  </div>
+                  <div class="sm-stat">
+                    <span class="lbl">OVERSEAS</span>
+                    <span class="val">{{ countOverseas(vm.modalTeam?.squad) }}/8</span>
+                  </div>
+               </div>
+               <button class="close-sm" (click)="closeSquadModal()">✕</button>
+            </div>
+            
+            <div class="sm-body">
+               <div class="squad-grid-sections">
+                  <div class="sm-role-section" *ngFor="let group of ['WK', 'BAT', 'BOWL', 'ALL']">
+                     <h3 class="sm-cat-title">
+                        <span class="icon">{{ group === 'WK' ? '🧤' : group === 'BAT' ? '🏏' : group === 'BOWL' ? '🏐' : '⚡' }}</span>
+                        {{ group === 'WK' ? 'WICKETKEEPERS' : group === 'BAT' ? 'BATSMEN' : group === 'BOWL' ? 'BOWLERS' : 'ALL-ROUNDERS' }}
+                        <span class="sm-count">({{ getPlayersByRole(vm.modalTeam?.squad, group).length }})</span>
+                     </h3>
+                     
+                     <div class="sm-players-grid">
+                        <div class="sm-p-card" *ngFor="let p of getPlayersByRole(vm.modalTeam?.squad, group)">
+                           <div class="sm-p-img-wrap">
+                              <img [src]="p.imageUrl" class="sm-p-img" (error)="onImgError($event)">
+                              <span class="sm-ovs" *ngIf="p.nationality !== 'Indian'">✈️</span>
+                           </div>
+                           <div class="sm-p-info">
+                              <div class="sm-p-name">{{ p.name }}</div>
+                              <div class="sm-p-meta">
+                                 <span class="sm-p-role">{{ p.role }}</span>
+                                 <span class="sm-p-price">₹{{ p.soldPrice }}L</span>
+                              </div>
+                           </div>
+                        </div>
+                        <div *ngIf="getPlayersByRole(vm.modalTeam?.squad, group).length === 0" class="sm-p-empty">
+                           No {{ group === 'WK' ? 'Keeper' : group === 'BAT' ? 'Batsman' : group === 'BOWL' ? 'Bowler' : 'All Rounder' }} yet.
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
     </div>
   `,
   styleUrls: ["./auction-room.component.css"]
@@ -399,12 +446,14 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
   private currentUserIdSig = signal<string>("");
   private actionErrorSig = signal<string>("");
   private actionLoadingSig = signal<boolean>(false);
-  private activeTabSig = signal<'feed' | 'squads'>('feed');
+  private activeTabSig = signal<'auction' | 'feed' | 'squads'>('auction');
   private squadsSig = signal<any[]>([]);
   private selectedTeamSig = signal<string>("");
   private onlineUsersSig = signal<string[]>([]);
   private fullPoolSig = signal<PlayerDTO[]>([]);
   private isPoolVisibleSig = signal<boolean>(false);
+  private isSquadModalVisibleSig = signal<boolean>(false);
+  private modalTeamIdSig = signal<string>("");
   private retryCountdownSig = signal<number>(30);
   private finalStatsVisibleSig = signal<boolean>(false);
   private retryTimerRef: ReturnType<typeof setInterval> | null = null;
@@ -414,6 +463,8 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     const a = this.auctionSig();
     const up = this.upcomingPoolSig() || [];
     const cUserId = this.currentUserIdSig();
+    const mTeamId = this.modalTeamIdSig();
+    const squads = this.squadsSig() || [];
     return {
       lobby: l,
       auction: a,
@@ -423,11 +474,13 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
       actionError: this.actionErrorSig(),
       actionLoading: this.actionLoadingSig(),
       activeTab: this.activeTabSig(),
-      squads: this.squadsSig() || [],
+      squads: squads,
       selectedTeam: this.selectedTeamSig(),
       onlineUsers: this.onlineUsersSig() || [],
       fullPool: this.fullPoolSig() || [],
       isPoolVisible: this.isPoolVisibleSig(),
+      isSquadModalVisible: this.isSquadModalVisibleSig(),
+      modalTeam: squads.find(s => s.userId === mTeamId) || null,
       isAdmin: l?.adminId === cUserId,
       currentPoolName: up[0]?.category || 'DRAFT',
       retryCountdown: this.retryCountdownSig(),
@@ -541,6 +594,10 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
             this.currentPlayerSig.set(data.payload.player);
             this.auctionSig.set(data.payload.room);
             this.upcomingPoolSig.set(data.payload.upcoming || []);
+            // Auto-switch mobile view to auction when a new player comes up
+            if (this.activeTabSig() !== 'auction') {
+              this.activeTabSig.set('auction');
+            }
             break;
           case "BID_PLACED":
             this.auctionSig.set(data.payload);
@@ -613,9 +670,18 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     if (currentBid < 1000) return 20;
     return 50;
   }
+  formatPurse(val: number): string {
+    if (!val) return "0.00";
+    // If val is > 500, it's likely in Lakhs (e.g. 12000L = 120Cr)
+    const normalized = val > 500 ? val / 100 : val;
+    return normalized.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   canAfford(lobby: LobbyDTO | null, userId: string, amount: number): boolean {
     const p = lobby?.participants.find(x => x.userId === userId);
-    return p ? (amount / 100) <= p.purseRemaining : false;
+    if (!p) return false;
+    const purse = p.purseRemaining > 500 ? p.purseRemaining / 100 : p.purseRemaining;
+    return (amount / 100) <= purse;
   }
 
   exitAuction(): void { this.router.navigate(["/dashboard"]); }
@@ -631,7 +697,7 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     return lobby.participants.find(p => p.userId === currentUserId)?.purseRemaining || 0;
   }
 
-  setTab(tab: 'feed' | 'squads'): void {
+  setTab(tab: 'auction' | 'feed' | 'squads'): void {
     this.activeTabSig.set(tab);
     if (tab === 'squads') {
       this.fetchSquads();
@@ -644,8 +710,9 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     return squad.filter(p => {
       const pRole = (p.role || '').toUpperCase();
       if (r === 'WK') return pRole.includes('WK');
-      if (r === 'BAT') return pRole.includes('BAT');
-      if (r === 'BOWL') return pRole.includes('BOWL');
+      if (r === 'BAT') return pRole.includes('BAT') && !pRole.includes('WK');
+      if (r === 'BOWL') return pRole.includes('BOWL') && !pRole.includes('ALL');
+      if (r === 'ALL') return pRole.includes('ALL');
       return pRole === r;
     }).length;
   }
@@ -665,8 +732,8 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
     return squad.filter(p => {
       const pRole = (p.role || '').toUpperCase();
       if (r === 'WK') return pRole.includes('WK');
-      if (r === 'BAT') return pRole.includes('BAT');
-      if (r === 'BOWL') return pRole.includes('BOWL');
+      if (r === 'BAT') return pRole.includes('BAT') && !pRole.includes('WK');
+      if (r === 'BOWL') return pRole.includes('BOWL') && !pRole.includes('ALL');
       if (r === 'ALL') return pRole.includes('ALL');
       return pRole === r;
     });
@@ -678,12 +745,33 @@ export class AuctionRoomComponent implements OnInit, OnDestroy {
 
     this.lobbyService.getLobbySquads(lobby.id).subscribe({
       next: (res) => {
-        this.squadsSig.set(res.data);
-        if (!this.selectedTeamSig() && res.data && res.data.length > 0) {
-          this.selectedTeamSig.set(this.currentUserIdSig() || res.data[0].userId);
+        // Ensure unique players in squad by keeping latest record (handles accidental backend dupes)
+        const cleanedData = (res.data || []).map((team: any) => {
+          if (!team.squad) return team;
+          const uniqueIds = new Set();
+          const uniqueSquad = team.squad.filter((p: any) => {
+            if (uniqueIds.has(p.id)) return false;
+            uniqueIds.add(p.id);
+            return true;
+          });
+          return { ...team, squad: uniqueSquad };
+        });
+
+        this.squadsSig.set(cleanedData);
+        if (!this.selectedTeamSig() && cleanedData.length > 0) {
+          this.selectedTeamSig.set(this.currentUserIdSig() || cleanedData[0].userId);
         }
       }
     });
+  }
+
+  openSquadModal(userId: string): void {
+    this.modalTeamIdSig.set(userId);
+    this.isSquadModalVisibleSig.set(true);
+  }
+
+  closeSquadModal(): void {
+    this.isSquadModalVisibleSig.set(false);
   }
 
   // ── Retry Unsold Countdown ──

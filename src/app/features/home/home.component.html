@@ -43,11 +43,11 @@
 
       <div class="hero-cta" id="hero-cta">
         <a routerLink="/register" class="btn btn-primary btn-hero" id="cta-register">
-          <span>Start Bidding</span>
+          <span>REGISTER NOW ⚡</span>
           <span class="btn-arrow">→</span>
         </a>
         <a routerLink="/login" class="btn btn-outline btn-hero" id="cta-login">
-          Login to Lobby
+          LOGIN TO LOBBY
         </a>
       </div>
 
@@ -72,7 +72,7 @@
 
     <div class="hero-visual" id="hero-visual">
       <div class="visual-wrapper">
-        <img src="assets/hero-cricket.png" alt="BidXI Cricket Auction" class="hero-image" />
+        <img src="assets/images/ms_dhoni_hero.png" alt="BidXI Cricket Auction" class="hero-image" />
         <!-- Floating auction cards -->
         <div class="float-card float-card-1" id="float-card-1">
           <div class="float-card-icon">🔥</div>
@@ -106,7 +106,8 @@
     <div class="section-header">
       <span class="section-tag">Why BidXI?</span>
       <h2 class="section-title">Built for the <span class="text-gold">Thrill</span> of Auction</h2>
-      <p class="section-subtitle">Every feature designed to deliver an adrenaline-pumping, authentic IPL auction experience.</p>
+      <p class="section-subtitle">Every feature designed to deliver an adrenaline-pumping, authentic IPL auction
+        experience.</p>
     </div>
 
     <div class="features-grid" id="features-grid">
@@ -115,7 +116,8 @@
           <span class="feature-icon">⚡</span>
         </div>
         <h3>Real-Time Bidding</h3>
-        <p>WebSocket-powered live auctions with 10-second bid timers. Feel the pressure of every second ticking away.</p>
+        <p>WebSocket-powered live auctions with 10-second bid timers. Feel the pressure of every second ticking away.
+        </p>
       </div>
 
       <div class="feature-card" id="feature-lobby">
@@ -139,7 +141,8 @@
           <span class="feature-icon">👥</span>
         </div>
         <h3>Multiplayer Action</h3>
-        <p>Compete with friends in real-time. Watch each other's bids, strategies, and reactions as they happen live.</p>
+        <p>Compete with friends in real-time. Watch each other's bids, strategies, and reactions as they happen live.
+        </p>
       </div>
 
       <div class="feature-card" id="feature-analytics">
@@ -174,7 +177,8 @@
         <div class="step-number">01</div>
         <div class="step-content">
           <h3>Create or Join a Lobby</h3>
-          <p>Sign up, create a private lobby or join one with an invite code. Customize purse size and player pool settings.</p>
+          <p>Sign up, create a private lobby or join one with an invite code. Customize purse size and player pool
+            settings.</p>
         </div>
         <div class="step-connector"></div>
       </div>
@@ -183,7 +187,8 @@
         <div class="step-number">02</div>
         <div class="step-content">
           <h3>Bid in Real-Time</h3>
-          <p>When the host starts the auction, players go up for bidding one by one. Place your bids before the 10-second timer runs out!</p>
+          <p>When the host starts the auction, players go up for bidding one by one. Place your bids before the
+            10-second timer runs out!</p>
         </div>
         <div class="step-connector"></div>
       </div>
@@ -192,7 +197,8 @@
         <div class="step-number">03</div>
         <div class="step-content">
           <h3>Build & Win</h3>
-          <p>Strategically assemble your playing XI within your budget. The best squad wins bragging rights and leaderboard glory.</p>
+          <p>Strategically assemble your playing XI within your budget. The best squad wins bragging rights and
+            leaderboard glory.</p>
         </div>
       </div>
     </div>
@@ -209,6 +215,31 @@
       <span>Create Free Account</span>
       <span class="btn-arrow">→</span>
     </a>
+  </div>
+</section>
+
+<!-- ============ FRANCHISE SHOWCASE ============ -->
+<section class="franchise-showcase" id="franchise-section">
+  <div class="showcase-header">
+    <span class="section-tag">IPL 2026</span>
+    <h2 class="section-title">The <span class="text-gold">Franchise Hall</span></h2>
+  </div>
+
+  <div class="scroll-container">
+    <div class="scroll-track">
+      <!-- Original set -->
+      <div *ngFor="let team of teams" class="franchise-card" [style.--team-color]="team.color">
+        <div class="team-initials">{{ team.code }}</div>
+        <div class="team-name">{{ team.name }}</div>
+        <div class="card-glow"></div>
+      </div>
+      <!-- Duplicate set for seamless loop -->
+      <div *ngFor="let team of teams" class="franchise-card" [style.--team-color]="team.color">
+        <div class="team-initials">{{ team.code }}</div>
+        <div class="team-name">{{ team.name }}</div>
+        <div class="card-glow"></div>
+      </div>
+    </div>
   </div>
 </section>
 

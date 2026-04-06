@@ -657,6 +657,127 @@
   box-shadow: 0 8px 32px rgba(245, 166, 35, 0.5) !important;
 }
 
+/* ---- FRANCHISE SHOWCASE ---- */
+.franchise-showcase {
+  padding: 80px 0;
+  background: #080c18;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.showcase-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.scroll-container {
+  width: 100%;
+  overflow: hidden;
+  padding: 20px 0;
+  position: relative;
+}
+
+/* Add masks for smooth fading edges */
+.scroll-container::before,
+.scroll-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  width: 150px;
+  height: 100%;
+}
+
+.scroll-container::before {
+  left: 0;
+  background: linear-gradient(to right, #080c18, transparent);
+}
+
+.scroll-container::after {
+  right: 0;
+  background: linear-gradient(to left, #080c18, transparent);
+}
+
+.scroll-track {
+  display: flex;
+  width: fit-content;
+  animation: scroll-loop 30s linear infinite;
+  gap: 24px;
+}
+
+.scroll-track:hover {
+  animation-play-state: paused;
+}
+
+.franchise-card {
+  flex: 0 0 200px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: default;
+}
+
+.franchise-card:hover {
+  transform: translateY(-8px) scale(1.05);
+  border-color: var(--team-color);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(var(--team-color-rgb), 0.3);
+}
+
+.team-initials {
+  font-family: var(--font-display, 'Rajdhani', sans-serif);
+  font-size: 3.2rem;
+  font-weight: 800;
+  color: var(--team-color);
+  line-height: 1;
+  text-shadow: 0 0 20px var(--team-color);
+  opacity: 0.9;
+  transition: all 0.3s ease;
+}
+
+.franchise-card:hover .team-initials {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.team-name {
+  font-size: 0.75rem;
+  color: #8b9cc8;
+  font-weight: 600;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: 0.6;
+}
+
+.franchise-card:hover .team-name {
+  color: #f0f4ff;
+  opacity: 1;
+}
+
+.card-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, var(--team-color) 0%, transparent 70%);
+  opacity: 0.03;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.franchise-card:hover .card-glow {
+  opacity: 0.12;
+}
+
 /* ---- FOOTER ---- */
 .footer {
   background: #060a14;
@@ -722,6 +843,11 @@
 /* ============================================================
    ANIMATIONS
    ============================================================ */
+
+@keyframes scroll-loop {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(-200px * 10 - 24px * 10)); }
+}
 
 @keyframes float-slow {
   0% { transform: translate(0, 0) scale(1); }

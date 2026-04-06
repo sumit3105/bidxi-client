@@ -12,16 +12,16 @@ import { LobbyService } from "../../core/services/lobby.service";
 import { LobbyDTO } from "../../core/models/lobby.model";
 
 const IPL_TEAMS = [
-  { code: "MI",   name: "Mumbai Indians",             color: "#004BA0" },
-  { code: "CSK",  name: "Chennai Super Kings",         color: "#FDB913" },
-  { code: "RCB",  name: "Royal Challengers Bengaluru", color: "#EC1C24" },
-  { code: "KKR",  name: "Kolkata Knight Riders",       color: "#3A225D" },
-  { code: "DC",   name: "Delhi Capitals",              color: "#0078BC" },
-  { code: "PBKS", name: "Punjab Kings",                color: "#ED1B24" },
-  { code: "SRH",  name: "Sunrisers Hyderabad",         color: "#F26522" },
-  { code: "RR",   name: "Rajasthan Royals",            color: "#254AA5" },
-  { code: "GT",   name: "Gujarat Titans",              color: "#1B2133" },
-  { code: "LSG",  name: "Lucknow Super Giants",        color: "#A72056" },
+  { code: "MI", name: "Mumbai Indians", color: "#004BA0" },
+  { code: "CSK", name: "Chennai Super Kings", color: "#FDB913" },
+  { code: "RCB", name: "Royal Challengers Bengaluru", color: "#EC1C24" },
+  { code: "KKR", name: "Kolkata Knight Riders", color: "#3A225D" },
+  { code: "DC", name: "Delhi Capitals", color: "#0078BC" },
+  { code: "PBKS", name: "Punjab Kings", color: "#ED1B24" },
+  { code: "SRH", name: "Sunrisers Hyderabad", color: "#F26522" },
+  { code: "RR", name: "Rajasthan Royals", color: "#254AA5" },
+  { code: "GT", name: "Gujarat Titans", color: "#1B2133" },
+  { code: "LSG", name: "Lucknow Super Giants", color: "#A72056" },
 ];
 
 @Component({
@@ -401,24 +401,24 @@ export class LobbyDashboardComponent implements OnInit {
   lobbiesLoading = true;
 
   createForm = this.fb.group({
-    name:       ["", [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
-    maxPlayers: [6,  [Validators.required, Validators.min(2), Validators.max(10)]],
-    purse:      [120,[Validators.required, Validators.min(50), Validators.max(1000)]],
-    teamName:   ["", [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
-    iplTeam:    ["", [Validators.required]],
+    name: ["", [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
+    maxPlayers: [6, [Validators.required, Validators.min(2), Validators.max(10)]],
+    purse: [120, [Validators.required, Validators.min(50), Validators.max(1000)]],
+    teamName: ["", [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
+    iplTeam: ["", [Validators.required]],
   });
 
   joinForm = this.fb.group({
     inviteCode: ["", [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
-    teamName:   ["", [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
-    iplTeam:    ["", [Validators.required]],
+    teamName: ["", [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
+    iplTeam: ["", [Validators.required]],
   });
 
   createLoading = false;
-  joinLoading   = false;
-  createError   = "";
-  joinError     = "";
-  currentUser   = this.authService.currentUser();
+  joinLoading = false;
+  createError = "";
+  joinError = "";
+  currentUser = this.authService.currentUser();
   myLobbies: LobbyDTO[] = [];
 
   constructor(
@@ -427,7 +427,7 @@ export class LobbyDashboardComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private cdr: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.currentUser = this.authService.currentUser();
@@ -472,9 +472,9 @@ export class LobbyDashboardComponent implements OnInit {
 
   /* ── Team helpers ── */
   get selectedCreateTeamColor() { return IPL_TEAMS.find(t => t.code === this.createForm.get("iplTeam")?.value)?.color ?? "#fff"; }
-  get selectedCreateTeamName()  { return IPL_TEAMS.find(t => t.code === this.createForm.get("iplTeam")?.value)?.name ?? ""; }
-  get selectedJoinTeamColor()   { return IPL_TEAMS.find(t => t.code === this.joinForm.get("iplTeam")?.value)?.color ?? "#fff"; }
-  get selectedJoinTeamName()    { return IPL_TEAMS.find(t => t.code === this.joinForm.get("iplTeam")?.value)?.name ?? ""; }
+  get selectedCreateTeamName() { return IPL_TEAMS.find(t => t.code === this.createForm.get("iplTeam")?.value)?.name ?? ""; }
+  get selectedJoinTeamColor() { return IPL_TEAMS.find(t => t.code === this.joinForm.get("iplTeam")?.value)?.color ?? "#fff"; }
+  get selectedJoinTeamName() { return IPL_TEAMS.find(t => t.code === this.joinForm.get("iplTeam")?.value)?.name ?? ""; }
 
   onCodeInput(e: Event): void {
     const v = (e.target as HTMLInputElement).value.toUpperCase();
@@ -547,5 +547,5 @@ export class LobbyDashboardComponent implements OnInit {
     });
   }
 
-  logout(): void { this.authService.logout(); this.router.navigate(["/login"]); }
+  logout(): void { this.authService.logout(); this.router.navigate(["/"]); }
 }
